@@ -21,7 +21,9 @@ npm test
 
 ### そのまま静的公開
 
-`index.html` を Netlify、Cloudflare Pages、Vercel の静的サイト、院内Webサーバーなどに配置すると公開できます。
+`index.html` を Netlify、Cloudflare Pages、院内Webサーバーなどに配置すると公開できます。
+
+VercelではNext.jsアプリとして自動検出されるため、そのままリポジトリをImportしてDeployしてください。
 
 ### GitHub Pages
 
