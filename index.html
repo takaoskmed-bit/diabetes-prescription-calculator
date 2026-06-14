@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>処方量計算アプリ</title>
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: #f6f8fb;
+        color: #172033;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      main { max-width: 1280px; margin: 0 auto; padding: 24px; }
+      header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: end;
+        border-bottom: 1px solid #dbe3ee;
+        padding-bottom: 20px;
+      }
+      h1 { margin: 4px 0 0; font-size: 28px; line-height: 1.25; }
+      h2 { margin: 0; font-size: 18px; }
+      .eyebrow { color: #0f766e; font-weight: 700; font-size: 14px; }
+      .layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr); gap: 24px; margin-top: 24px; }
+      .stack { display: grid; gap: 20px; }
+      .card {
+        background: #fff;
+        border: 1px solid #dbe3ee;
+        border-radius: 8px;
+        padding: 16px;
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+      }
+      .grid { display: grid; gap: 14px; margin-top: 16px; }
+      .cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      label { cursor: pointer; }
+      .field-label { display: block; color: #334155; font-weight: 700; font-size: 13px; margin-bottom: 6px; }
+      .input-wrap { display: flex; overflow: hidden; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+      input[data-numeric-input="true"] { min-width: 0; width: 100%; border: 0; padding: 10px 12px; outline: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; appearance: textfield; -moz-appearance: textfield; }
+      input[data-numeric-input="true"]::-webkit-outer-spin-button,
+      input[data-numeric-input="true"]::-webkit-inner-spin-button { margin: 0; -webkit-appearance: none; }
+      .unit { border-left: 1px solid #e2e8f0; background: #f8fafc; padding: 10px 12px; color: #475569; white-space: nowrap; font-size: 14px; }
+      .drug-row { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 14px; align-items: center; border: 1px solid #dbe3ee; border-radius: 6px; padding: 12px; }
+      input[type="radio"] { width: 16px; height: 16px; accent-color: #0f766e; }
+      .title { display: block; font-weight: 700; }
+      .muted { display: block; color: #64748b; font-size: 13px; margin-top: 3px; }
+      .choice { display: flex; justify-content: space-between; gap: 12px; border: 1px solid #dbe3ee; border-radius: 6px; padding: 12px; }
+      .choice.active { border-color: #0f766e; background: #f0fdfa; }
+      button { border: 0; border-radius: 6px; font-weight: 700; cursor: pointer; }
+      .secondary { border: 1px solid #cbd5e1; background: #fff; padding: 9px 14px; color: #1e293b; }
+      .primary { background: #0f766e; color: #fff; padding: 10px 14px; }
+      .primary:disabled { background: #cbd5e1; cursor: not-allowed; }
+      .result-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+      .result-card { border: 1px solid #dbe3ee; background: #f8fafc; border-radius: 6px; padding: 14px; display: flex; justify-content: space-between; gap: 16px; }
+      .qty { color: #115e59; font-size: 26px; font-weight: 800; white-space: nowrap; }
+      .qty span { color: #334155; font-size: 16px; margin-left: 4px; }
+      .empty { border: 1px dashed #cbd5e1; border-radius: 6px; color: #64748b; padding: 20px; font-size: 14px; }
+      .error { border-color: #fecaca; background: #fef2f2; color: #991b1b; }
+      footer { margin-top: 24px; border: 1px solid #fde68a; background: #fffbeb; border-radius: 8px; padding: 16px; color: #78350f; line-height: 1.7; font-size: 14px; }
+      @media (max-width: 900px) {
+        .layout, .cols-4, .cols-3, .cols-2, .drug-row { grid-template-columns: 1fr; }
+        header { align-items: stretch; flex-direction: column; }
+      }
+      @media print {
+        body { background: #fff; }
+        .no-print { display: none !important; }
+        .card, footer { box-shadow: none; break-inside: avoid; }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <div class="eyebrow">糖尿病診療向け</div>
+          <h1>インスリン・注射薬・血糖測定用品・CGM処方量計算</h1>
+        </div>
+        <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+          <button class="secondary no-print" id="resetButton" type="button">リセット</button>
+          <button class="secondary no-print" onclick="window.print()">印刷</button>
+        </div>
+      </header>
+
+      <section class="layout">
+        <div class="stack">
+          <section class="card">
+            <h2>基本条件</h2>
+            <div class="grid cols-3" id="basicFields"></div>
+          </section>
+
+          <section class="card">
+            <h2>薬剤</h2>
+            <div class="grid" id="drugFields"></div>
+          </section>
+
+          <section class="card">
+            <h2>CGM</h2>
+            <div class="grid cols-3" id="cgmFields"></div>
+          </section>
+        </div>
+
+        <aside class="stack">
+          <section class="card error" id="errorCard" hidden>
+            <h2>入力エラー</h2>
+            <ul id="errors"></ul>
+          </section>
+          <section class="card">
+            <div class="result-head">
+              <h2>計算結果</h2>
+              <button class="primary no-print" id="copyButton">結果をコピー</button>
+            </div>
+            <div class="grid" id="results"></div>
+          </section>
+        </aside>
+      </section>
+
+      <footer>
+        本アプリは処方量の確認を補助するツールです。実際の処方、製剤規格、施設基準については、最新の添付文書・院内運用を確認してください。
+      </footer>
+    </main>
+
+    <script>
+      const dailyDrugs = [
+        { id: "rapidInsulin", name: "超速効型インスリン", unitLabel: "単位/日", amountPerItem: 300, primingUnitsPerInjection: 2, itemUnitLabel: "本" },
+        { id: "basalInsulin", name: "持効型インスリン", unitLabel: "単位/日", amountPerItem: 300, primingUnitsPerInjection: 2, itemUnitLabel: "本" },
+        { id: "lantusXr", name: "ランタスXR", unitLabel: "単位/日", amountPerItem: 450, primingUnitsPerInjection: 3, itemUnitLabel: "本" },
+      ];
+      const weeklyDrugs = [
+        { id: "awiqli", name: "アウィクリ", weeklyInputLabel: "単位/週", amountPerItem: 700, itemUnitLabel: "本", unitKind: "unit" },
+        { id: "ozempic", name: "オゼンピック", weeklyInputLabel: "mg/週", amountPerItem: 2, itemUnitLabel: "本", unitKind: "mg" },
+      ];
+      const cgms = [
+        { id: "none", name: "なし", daysPerSensor: null },
+        { id: "libre", name: "リブレ", daysPerSensor: 14 },
+        { id: "dexcomG7", name: "Dexcom G7", daysPerSensor: 10 },
+      ];
+      const supplies = {
+        needles: { id: "needles", name: "注射針", packageSize: 70, packageUnitLabel: "箱", itemUnitLabel: "本" },
+        glucoseStrips: { id: "glucoseStrips", name: "血糖測定チップ", packageSize: 30, packageUnitLabel: "箱", itemUnitLabel: "枚" },
+      };
+      const state = {
+        prescriptionDays: 0,
+        measurementsPerDay: 0,
+        cgmId: "none",
+        daily: Object.fromEntries(dailyDrugs.map((d) => [d.id, { dailyAmount: 0 }])),
+        rapid: { breakfastAmount: 0, lunchAmount: 0, dinnerAmount: 0 },
+        weekly: Object.fromEntries(weeklyDrugs.map((d) => [d.id, { weeklyAmount: 0 }])),
+      };
+      const ceil = Math.ceil;
+      const normalizeNumericText = (value) => value
+        .replace(/[０-９]/g, (char) => String.fromCharCode(char.charCodeAt(0) - 0xfee0))
+        .replace(/．/g, ".")
+        .replace(/－/g, "-");
+      const num = (value) => {
+        const normalizedValue = normalizeNumericText(value);
+        return normalizedValue === "" ? 0 : Number(normalizedValue);
+      };
+      const displayNumber = (value) => value === 0 ? "" : String(value);
+      let lastFocusedNumberInput = null;
+      const prescriptionWeeks = () => ceil(state.prescriptionDays / 7);
+      const rapidInjectionsPerDay = () => [state.rapid.breakfastAmount, state.rapid.lunchAmount, state.rapid.dinnerAmount].filter((amount) => amount > 0).length;
+      const dailyInjectionsPerDay = () => rapidInjectionsPerDay() + dailyDrugs.filter((drug) => drug.id !== "rapidInsulin" && state.daily[drug.id].dailyAmount > 0).length;
+      const weeklyInjectionsPerWeek = () => weeklyDrugs.filter((drug) => state.weekly[drug.id].weeklyAmount > 0).length;
+      function resetInputs() {
+        state.prescriptionDays = 0;
+        state.measurementsPerDay = 0;
+        state.cgmId = "none";
+        state.daily = Object.fromEntries(dailyDrugs.map((d) => [d.id, { dailyAmount: 0 }]));
+        state.rapid = { breakfastAmount: 0, lunchAmount: 0, dinnerAmount: 0 };
+        state.weekly = Object.fromEntries(weeklyDrugs.map((d) => [d.id, { weeklyAmount: 0 }]));
+        render();
+      }
+      function numberField(key, label, unit) {
+        return `<label><span class="field-label">${label}</span><span class="input-wrap"><input type="text" data-numeric-input="true" inputmode="decimal" value="${displayNumber(state[key])}" data-number="${key}" /><span class="unit">${unit}</span></span></label>`;
+      }
+      function injectionSummary() {
+        return `<div class="card" style="box-shadow: none; background: #f8fafc; padding: 10px 12px;"><span class="field-label">注射回数</span><span class="muted" id="injectionSummaryText">${dailyInjectionsPerDay()}回/日 + ${weeklyInjectionsPerWeek()}回/週</span></div>`;
+      }
+      function render() {
+        basicFields.innerHTML = [
+          numberField("prescriptionDays", "処方日数", "日"),
+          numberField("measurementsPerDay", "血糖測定回数", "回/日"),
+          injectionSummary(),
+        ].join("");
+        drugFields.innerHTML = [
+          ...dailyDrugs.map((drug) => drug.id === "rapidInsulin" ? rapidInsulinRow(drug) : drugRow(drug, "daily")),
+          ...weeklyDrugs.map((drug) => drugRow(drug, "weekly")),
+        ].join("");
+        cgmFields.innerHTML = cgms.map((cgm) => `<label class="choice ${state.cgmId === cgm.id ? "active" : ""}"><span><span class="title">${cgm.name}</span><span class="muted">${cgm.daysPerSensor ? `${cgm.daysPerSensor}日ごと` : "使用なし"}</span></span><input type="radio" name="cgm" value="${cgm.id}" ${state.cgmId === cgm.id ? "checked" : ""}></label>`).join("");
+        bindNumberInputs();
+        renderOutputs();
+      }
+      function renderOutputs() {
+        const injectionSummaryText = document.getElementById("injectionSummaryText");
+        if (injectionSummaryText) {
+          injectionSummaryText.textContent = `${dailyInjectionsPerDay()}回/日 + ${weeklyInjectionsPerWeek()}回/週`;
+        }
+        const errors = validate();
+        errorCard.hidden = errors.length === 0;
+        document.getElementById("errors").innerHTML = errors.map((e) => `<li>${e}</li>`).join("");
+        const calculated = errors.length ? [] : calculate();
+        results.innerHTML = calculated.length ? calculated.map(resultCard).join("") : `<div class="empty">使用する薬剤や測定条件を入力すると結果が表示されます。</div>`;
+        copyButton.disabled = calculated.length === 0;
+      }
+      function drugRow(drug, kind) {
+        const input = kind === "daily" ? state.daily[drug.id] : state.weekly[drug.id];
+        const amountKey = kind === "daily" ? "dailyAmount" : "weeklyAmount";
+        const label = kind === "daily" ? "1日単位数" : "週投与量";
+        const unit = kind === "daily" ? drug.unitLabel : drug.weeklyInputLabel;
+        const capacity = kind === "daily" ? `${drug.amountPerItem}単位` : `${drug.amountPerItem}${drug.unitKind === "mg" ? "mg" : "単位"}`;
+        const priming = kind === "daily" ? ` / 空打ち ${drug.primingUnitsPerInjection}単位/回` : "";
+        return `<div class="drug-row"><div><span class="title">${drug.name}</span><span class="muted">1${drug.itemUnitLabel}あたり ${capacity}${priming}</span></div><label><span class="field-label">${label}</span><span class="input-wrap"><input type="text" data-numeric-input="true" inputmode="decimal" value="${displayNumber(input[amountKey])}" data-drug-amount-kind="${kind}" data-drug-amount-id="${drug.id}" /><span class="unit">${unit}</span></span></label></div>`;
+      }
+      function rapidInsulinRow(drug) {
+        return `<div class="drug-row" style="grid-template-columns: 1fr;"><div><span class="title">${drug.name}</span><span class="muted">1${drug.itemUnitLabel}あたり ${drug.amountPerItem}単位 / 空打ち ${drug.primingUnitsPerInjection}単位/回</span></div><div class="grid cols-3"><label><span class="field-label">朝</span><span class="input-wrap"><input type="text" data-numeric-input="true" inputmode="decimal" value="${displayNumber(state.rapid.breakfastAmount)}" data-rapid-amount="breakfastAmount" /><span class="unit">単位</span></span></label><label><span class="field-label">昼</span><span class="input-wrap"><input type="text" data-numeric-input="true" inputmode="decimal" value="${displayNumber(state.rapid.lunchAmount)}" data-rapid-amount="lunchAmount" /><span class="unit">単位</span></span></label><label><span class="field-label">晩</span><span class="input-wrap"><input type="text" data-numeric-input="true" inputmode="decimal" value="${displayNumber(state.rapid.dinnerAmount)}" data-rapid-amount="dinnerAmount" /><span class="unit">単位</span></span></label></div></div>`;
+      }
+      function validate() {
+        const values = [state.prescriptionDays, state.measurementsPerDay, state.rapid.breakfastAmount, state.rapid.lunchAmount, state.rapid.dinnerAmount, ...Object.values(state.daily).map((v) => v.dailyAmount), ...Object.values(state.weekly).map((v) => v.weeklyAmount)];
+        return values.some((value) => value < 0) ? ["0以上の値を入力してください。"] : [];
+      }
+      function calculate() {
+        const rapidMaster = dailyDrugs.find((d) => d.id === "rapidInsulin");
+        const rapidDailyAmount = state.rapid.breakfastAmount + state.rapid.lunchAmount + state.rapid.dinnerAmount;
+        const rapidInjectionsPerDay = [state.rapid.breakfastAmount, state.rapid.lunchAmount, state.rapid.dinnerAmount].filter((amount) => amount > 0).length;
+        const rapidResults = rapidDailyAmount > 0 && rapidMaster ? (() => {
+          const primingUnitsPerDay = rapidMaster.primingUnitsPerInjection * rapidInjectionsPerDay;
+          const total = (rapidDailyAmount + primingUnitsPerDay) * state.prescriptionDays;
+          return [{ id: rapidMaster.id, label: rapidMaster.name, detail: `(${rapidDailyAmount}${rapidMaster.unitLabel} + 空打ち${rapidMaster.primingUnitsPerInjection}単位 x ${rapidInjectionsPerDay}回/日) x ${state.prescriptionDays}日 = ${total}単位 / ${rapidMaster.amountPerItem}単位`, quantity: total <= 0 ? 0 : ceil(total / rapidMaster.amountPerItem), unit: rapidMaster.itemUnitLabel }];
+        })() : [];
+        const dailyResults = dailyDrugs.filter((d) => d.id !== "rapidInsulin" && state.daily[d.id].dailyAmount > 0).map((d) => {
+          const dailyAmount = state.daily[d.id].dailyAmount;
+          const injectionsPerDayForDrug = dailyAmount > 0 ? 1 : 0;
+          const primingUnitsPerDay = d.primingUnitsPerInjection * injectionsPerDayForDrug;
+          const dailyAmountWithPriming = dailyAmount + primingUnitsPerDay;
+          const total = dailyAmountWithPriming * state.prescriptionDays;
+          return { id: d.id, label: d.name, detail: `(${dailyAmount}${d.unitLabel} + 空打ち${d.primingUnitsPerInjection}単位 x ${injectionsPerDayForDrug}回/日) x ${state.prescriptionDays}日 = ${total}単位 / ${d.amountPerItem}単位`, quantity: total <= 0 ? 0 : ceil(total / d.amountPerItem), unit: d.itemUnitLabel };
+        });
+        const weeklyResults = weeklyDrugs.filter((d) => state.weekly[d.id].weeklyAmount > 0).map((d) => {
+          const weeklyAmount = state.weekly[d.id].weeklyAmount;
+          const weeks = prescriptionWeeks();
+          const total = weeklyAmount * weeks;
+          const unit = d.unitKind === "mg" ? "mg" : "単位";
+          return { id: d.id, label: d.name, detail: `${weeklyAmount}${d.weeklyInputLabel} x ${weeks}週（処方日数から換算） = ${total}${unit} / ${d.amountPerItem}${unit}`, quantity: total <= 0 ? 0 : ceil(total / d.amountPerItem), unit: d.itemUnitLabel };
+        });
+        const dailyNeedles = dailyInjectionsPerDay() * state.prescriptionDays;
+        const weeklyNeedles = weeklyInjectionsPerWeek() * prescriptionWeeks();
+        const needleTotal = dailyNeedles + weeklyNeedles;
+        const stripTotal = state.measurementsPerDay * state.prescriptionDays;
+        const selectedCgm = cgms.find((c) => c.id === state.cgmId);
+        const cgmResult = selectedCgm && selectedCgm.daysPerSensor ? [{ id: selectedCgm.id, label: selectedCgm.name, detail: `${state.prescriptionDays}日 / ${selectedCgm.daysPerSensor}日ごと`, quantity: state.prescriptionDays <= 0 ? 0 : ceil(state.prescriptionDays / selectedCgm.daysPerSensor), unit: "個" }] : [];
+        return [
+          ...rapidResults,
+          ...dailyResults,
+          ...weeklyResults,
+          {
+            id: supplies.needles.id,
+            label: supplies.needles.name,
+            detail: `${dailyInjectionsPerDay()}回/日 x ${state.prescriptionDays}日 + ${weeklyInjectionsPerWeek()}回/週 x ${prescriptionWeeks()}週 = ${needleTotal}${supplies.needles.itemUnitLabel} / ${supplies.needles.packageSize}${supplies.needles.itemUnitLabel}`,
+            quantity: needleTotal <= 0 ? 0 : ceil(needleTotal / supplies.needles.packageSize),
+            unit: supplies.needles.packageUnitLabel,
+          },
+          {
+            id: supplies.glucoseStrips.id,
+            label: supplies.glucoseStrips.name,
+            detail: `${state.measurementsPerDay}回/日 x ${state.prescriptionDays}日 = ${stripTotal}${supplies.glucoseStrips.itemUnitLabel} / ${supplies.glucoseStrips.packageSize}${supplies.glucoseStrips.itemUnitLabel}`,
+            quantity: stripTotal <= 0 ? 0 : ceil(stripTotal / supplies.glucoseStrips.packageSize),
+            unit: supplies.glucoseStrips.packageUnitLabel,
+          },
+          ...cgmResult,
+        ].filter((r) => r.quantity > 0);
+      }
+      function resultCard(r) {
+        return `<article class="result-card"><div><span class="title">${r.label}</span><span class="muted">${r.detail}</span></div><div class="qty">${r.quantity}<span>${r.unit}</span></div></article>`;
+      }
+      document.addEventListener("input", (event) => {
+        const target = event.target;
+        let handled = false;
+        if (target.dataset.number) {
+          const normalizedValue = normalizeNumericText(target.value);
+          if (target.value !== normalizedValue) target.value = normalizedValue;
+          state[target.dataset.number] = num(normalizedValue);
+          handled = true;
+        }
+        if (target.dataset.drugAmountKind) {
+          const normalizedValue = normalizeNumericText(target.value);
+          if (target.value !== normalizedValue) target.value = normalizedValue;
+          const bucket = target.dataset.drugAmountKind === "daily" ? state.daily : state.weekly;
+          const key = target.dataset.drugAmountKind === "daily" ? "dailyAmount" : "weeklyAmount";
+          bucket[target.dataset.drugAmountId][key] = num(normalizedValue);
+          handled = true;
+        }
+        if (target.dataset.rapidAmount) {
+          const normalizedValue = normalizeNumericText(target.value);
+          if (target.value !== normalizedValue) target.value = normalizedValue;
+          state.rapid[target.dataset.rapidAmount] = num(normalizedValue);
+          handled = true;
+        }
+        if (handled) renderOutputs();
+      });
+      document.addEventListener("focusin", (event) => {
+        const target = event.target;
+        if (target instanceof HTMLInputElement && target.dataset.numericInput === "true") {
+          lastFocusedNumberInput = target;
+          if (target.value === "0") {
+            target.value = "";
+          } else {
+            target.select();
+          }
+        }
+      });
+      function bindNumberInputs() {
+        const inputs = Array.from(document.querySelectorAll('input[data-numeric-input="true"]:not([disabled])'));
+        inputs.forEach((input, index) => {
+          input.dataset.entryIndex = String(index);
+          input.onkeydown = (event) => {
+            if (event.key !== "Enter") return;
+            event.preventDefault();
+            event.stopPropagation();
+            const currentInputs = Array.from(document.querySelectorAll('input[data-numeric-input="true"]:not([disabled])'));
+            const currentIndex = currentInputs.indexOf(input);
+            const nextInput = currentInputs[currentIndex + 1];
+            requestAnimationFrame(() => {
+              nextInput?.focus();
+              nextInput?.select();
+            });
+          };
+        });
+      }
+      document.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || !lastFocusedNumberInput) return;
+        if (event.target instanceof HTMLInputElement && event.target.dataset.numericInput === "true") return;
+
+        event.preventDefault();
+        const inputs = Array.from(document.querySelectorAll('input[data-numeric-input="true"]:not([disabled])'));
+        const currentIndex = inputs.indexOf(lastFocusedNumberInput);
+        const nextInput = inputs[currentIndex + 1];
+        requestAnimationFrame(() => {
+          nextInput?.focus();
+          nextInput?.select();
+        });
+      }, true);
+      document.addEventListener("change", (event) => {
+        const target = event.target;
+        if (target.name === "cgm") state.cgmId = target.value;
+        render();
+      });
+      resetButton.addEventListener("click", resetInputs);
+      copyButton.addEventListener("click", async () => {
+        const calculated = calculate();
+        const text = ["処方量計算結果", ...calculated.map((r) => `${r.label}: ${r.quantity}${r.unit}（${r.detail}）`)].filter(Boolean).join("\n");
+        await navigator.clipboard.writeText(text);
+        copyButton.textContent = "コピー済み";
+        setTimeout(() => copyButton.textContent = "結果をコピー", 1600);
+      });
+      render();
+    </script>
+  </body>
+</html>
