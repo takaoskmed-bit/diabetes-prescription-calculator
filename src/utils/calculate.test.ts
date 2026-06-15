@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { CGM_MASTERS, DAILY_DRUG_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
+import {
+  CGM_MASTERS,
+  DAILY_DRUG_MASTERS,
+  SUPPLY_MASTERS,
+  WEEKLY_DRUG_MASTERS,
+} from "@/lib/master";
 import {
   calculateCgmQuantity,
   calculateDailyDrugQuantity,
   calculateGlucoseStripQuantity,
   calculateNeedleQuantityFromInjectionPlan,
+  calculateWeeklyDrugQuantity,
   validateNonNegative,
 } from "./calculate";
 
@@ -38,6 +44,15 @@ describe("calculateCgmQuantity", () => {
 
     expect(master).toBeDefined();
     expect(calculateCgmQuantity(master!, 30)?.quantity).toBe(3);
+  });
+});
+
+describe("calculateWeeklyDrugQuantity", () => {
+  it("オゼンピックは小数の週投与量で計算する", () => {
+    const master = WEEKLY_DRUG_MASTERS.find((drug) => drug.id === "ozempic");
+
+    expect(master).toBeDefined();
+    expect(calculateWeeklyDrugQuantity(master!, 0.25, 4).quantity).toBe(1);
   });
 });
 

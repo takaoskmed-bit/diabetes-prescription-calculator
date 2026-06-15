@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CGM_MASTERS,
   DAILY_DRUG_MASTERS,
@@ -47,10 +47,15 @@ const initialWeeklyDrugInputs = WEEKLY_DRUG_MASTERS.reduce(
   {} as Record<WeeklyDrugId, WeeklyDrugInput>,
 );
 
-const numberValue = (value: string) => {
-  const normalizedValue = normalizeNumericText(value);
+const numberValue = (value: string, allowDecimal = false) => {
+  const normalizedValue = sanitizeNumericText(value, allowDecimal);
 
-  if (normalizedValue === "") {
+  if (
+    normalizedValue === "" ||
+    normalizedValue === "-" ||
+    normalizedValue === "." ||
+    normalizedValue === "-."
+  ) {
     return 0;
   }
 
@@ -66,6 +71,31 @@ const normalizeNumericText = (value: string) => {
     .replace(/－/g, "-");
 };
 
+const sanitizeNumericText = (value: string, allowDecimal = false) => {
+  const normalizedValue = normalizeNumericText(value);
+  let nextValue = "";
+  let hasDecimal = false;
+
+  for (const char of normalizedValue) {
+    if (/[0-9]/.test(char)) {
+      nextValue += char;
+      continue;
+    }
+
+    if (char === "-" && nextValue === "") {
+      nextValue += char;
+      continue;
+    }
+
+    if (allowDecimal && char === "." && !hasDecimal) {
+      nextValue += char;
+      hasDecimal = true;
+    }
+  }
+
+  return nextValue;
+};
+
 let lastFocusedNumberInput: HTMLInputElement | null = null;
 
 export default function Home() {
@@ -78,6 +108,7 @@ export default function Home() {
   );
   const [weeklyDrugInputs, setWeeklyDrugInputs] = useState(initialWeeklyDrugInputs);
   const [copied, setCopied] = useState(false);
+  const [resetVersion, setResetVersion] = useState(0);
 
   const selectedCgm = CGM_MASTERS.find((cgm) => cgm.id === cgmId) ?? CGM_MASTERS[0];
   const prescriptionWeeks = Math.ceil(prescriptionDays / 7);
@@ -232,6 +263,7 @@ export default function Home() {
     setRapidInsulinInput(initialRapidInsulinInput);
     setWeeklyDrugInputs(initialWeeklyDrugInputs);
     setCopied(false);
+    setResetVersion((current) => current + 1);
   };
 
   return (
@@ -270,12 +302,14 @@ export default function Home() {
                   value={prescriptionDays}
                   unit="日"
                   onChange={setPrescriptionDays}
+                  resetVersion={resetVersion}
                 />
                 <NumberField
                   label="血糖測定回数"
                   value={measurementsPerDay}
                   unit="回/日"
                   onChange={setMeasurementsPerDay}
+                  resetVersion={resetVersion}
                 />
                 <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
                   <p className="text-sm font-semibold text-slate-700">注射回数</p>
@@ -301,6 +335,7 @@ export default function Home() {
                         [field]: value,
                       }))
                     }
+                    resetVersion={resetVersion}
                   />
                 ))}
                 {DAILY_DRUG_MASTERS.filter((drug) => drug.id !== "rapidInsulin").map((drug) => (
@@ -317,6 +352,7 @@ export default function Home() {
                         [drug.id]: { ...current[drug.id], dailyAmount },
                       }))
                     }
+                    resetVersion={resetVersion}
                   />
                 ))}
                 {WEEKLY_DRUG_MASTERS.map((drug) => (
@@ -333,6 +369,8 @@ export default function Home() {
                         [drug.id]: { ...current[drug.id], weeklyAmount },
                       }))
                     }
+                    allowDecimal={drug.id === "ozempic"}
+                    resetVersion={resetVersion}
                   />
                 ))}
               </div>
@@ -424,12 +462,22 @@ function NumberField({
   value,
   unit,
   onChange,
+  allowDecimal = false,
+  resetVersion,
 }: {
   label: string;
   value: number;
   unit: string;
   onChange: (value: number) => void;
+  allowDecimal?: boolean;
+  resetVersion: number;
 }) {
+  const [displayValue, setDisplayValue] = useState(value === 0 ? "" : String(value));
+
+  useEffect(() => {
+    setDisplayValue(value === 0 ? "" : String(value));
+  }, [resetVersion, value]);
+
   return (
     <label className="block">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
@@ -438,7 +486,7 @@ function NumberField({
           type="text"
           data-numeric-input="true"
           inputMode="decimal"
-          value={value === 0 ? "" : value}
+          value={displayValue}
           onFocus={(event) => {
             lastFocusedNumberInput = event.currentTarget;
             event.currentTarget.select();
@@ -465,11 +513,12 @@ function NumberField({
             });
           }}
           onChange={(event) => {
-            const normalizedValue = normalizeNumericText(event.target.value);
-            if (event.target.value !== normalizedValue) {
-              event.target.value = normalizedValue;
-            }
-            onChange(numberValue(normalizedValue));
+            const normalizedValue = sanitizeNumericText(
+              event.target.value,
+              allowDecimal,
+            );
+            setDisplayValue(normalizedValue);
+            onChange(numberValue(normalizedValue, allowDecimal));
           }}
           className="min-w-0 flex-1 px-3 py-2 font-mono outline-none"
         />
@@ -488,6 +537,8 @@ function DrugRow({
   unit,
   value,
   onValueChange,
+  allowDecimal = false,
+  resetVersion,
 }: {
   label: string;
   subLabel: string;
@@ -495,6 +546,8 @@ function DrugRow({
   unit: string;
   value: number;
   onValueChange: (value: number) => void;
+  allowDecimal?: boolean;
+  resetVersion: number;
 }) {
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 p-3 sm:grid-cols-[minmax(0,1fr)_220px] sm:items-center">
@@ -507,6 +560,8 @@ function DrugRow({
         value={value}
         unit={unit}
         onChange={onValueChange}
+        allowDecimal={allowDecimal}
+        resetVersion={resetVersion}
       />
     </div>
   );
@@ -517,10 +572,12 @@ function RapidInsulinRow({
   subLabel,
   values,
   onValueChange,
+  resetVersion,
 }: {
   label: string;
   subLabel: string;
   values: RapidInsulinInput;
+  resetVersion: number;
   onValueChange: (
     field: "breakfastAmount" | "lunchAmount" | "dinnerAmount",
     value: number,
@@ -538,18 +595,21 @@ function RapidInsulinRow({
           value={values.breakfastAmount}
           unit="単位"
           onChange={(value) => onValueChange("breakfastAmount", value)}
+          resetVersion={resetVersion}
         />
         <NumberField
           label="昼"
           value={values.lunchAmount}
           unit="単位"
           onChange={(value) => onValueChange("lunchAmount", value)}
+          resetVersion={resetVersion}
         />
         <NumberField
           label="晩"
           value={values.dinnerAmount}
           unit="単位"
           onChange={(value) => onValueChange("dinnerAmount", value)}
+          resetVersion={resetVersion}
         />
       </div>
     </div>
