@@ -13,6 +13,8 @@ import {
   calculateWeeklyDrugQuantity,
   validateNonNegative,
 } from "./calculate";
+import { V2_DRUG_MASTERS } from "@/lib/v2Master";
+import { calculateV2DrugRowQuantity } from "./calculateV2";
 
 describe("calculateDailyDrugQuantity", () => {
   it("超速効型は朝昼晩3回分の空打ちを加えて計算する", () => {
@@ -84,5 +86,33 @@ describe("validateNonNegative", () => {
     expect(validateNonNegative({ dose: -1, days: 30 })).toEqual([
       { field: "dose", message: "0以上の値を入力してください。" },
     ]);
+  });
+});
+
+describe("calculateV2DrugRowQuantity", () => {
+  it("ver.2のインスリン行は3枠の投与量と空打ちを合算する", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "novorapid");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV2DrugRowQuantity(
+        master!,
+        { id: "row-1", drugId: "novorapid", doses: [10, 10, 10] },
+        30,
+      ).quantity,
+    ).toBe(4);
+  });
+
+  it("ver.2の使い切りGLP-1RAは投与回数で本数計算する", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "trulicity");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV2DrugRowQuantity(
+        master!,
+        { id: "row-1", drugId: "trulicity", doses: [0.75, 0, 0] },
+        28,
+      ).quantity,
+    ).toBe(4);
   });
 });
