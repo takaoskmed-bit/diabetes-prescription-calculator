@@ -291,12 +291,6 @@ export default function V4Page() {
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm print-card">
               <h2 className="text-lg font-bold text-slate-950">基本条件</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <NumberField
-                  label="処方日数"
-                  value={prescriptionDays}
-                  unit="日"
-                  onChange={setPrescriptionDays}
-                />
                 <DateField
                   label="開始日（受診日）"
                   value={visitDate}
@@ -308,6 +302,10 @@ export default function V4Page() {
                   value={nextVisitDate}
                   min={visitDate}
                   onChange={updateNextVisitDate}
+                />
+                <InfoBox
+                  label="計算日数"
+                  value={`${prescriptionDaysNumber}日`}
                 />
                 <NumberField
                   label="血糖測定回数"
@@ -421,7 +419,7 @@ export default function V4Page() {
               <div className="mt-4 grid gap-3">
                 {results.length === 0 ? (
                   <div className="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
-                    薬剤、処方日数、必要な測定条件を入力すると結果が表示されます。
+                    開始日、次回受診希望日、薬剤、必要な測定条件を入力すると結果が表示されます。
                   </div>
                 ) : (
                   results.map((result) => (
