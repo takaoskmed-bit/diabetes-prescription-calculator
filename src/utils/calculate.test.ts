@@ -117,16 +117,29 @@ describe("calculateV2DrugRowQuantity", () => {
   });
 
   it("アウィクリは空打ち10単位で計算する", () => {
-    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "awiqli");
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "awiqli-700");
     const result = calculateV2DrugRowQuantity(
       master!,
-      { id: "row-1", drugId: "awiqli", doses: [140, 0, 0] },
+      { id: "row-1", drugId: "awiqli-700", doses: [140, 0, 0] },
       28,
     );
 
     expect(master).toBeDefined();
     expect(result.detail).toContain("空打ち10単位");
     expect(result.quantity).toBe(1);
+  });
+
+  it("アウィクリ300単位規格を選択できる", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "awiqli-300");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV2DrugRowQuantity(
+        master!,
+        { id: "row-1", drugId: "awiqli-300", doses: [140, 0, 0] },
+        28,
+      ).quantity,
+    ).toBe(2);
   });
 
   it("ビクトーザは空打ち0.12mgで計算する", () => {
