@@ -6,11 +6,18 @@ export type V3PrescriptionRowInput = V2PrescriptionRowInput & {
   remainingItems: number;
 };
 
+export type V3PrescriptionRowResult = ReturnType<
+  typeof calculateV2DrugRowQuantity
+> & {
+  requiredQuantity: number;
+  remainingItems: number;
+};
+
 export function calculateV3DrugRowQuantity(
   master: V2DrugMaster,
   row: V3PrescriptionRowInput,
   prescriptionDays: number,
-) {
+): V3PrescriptionRowResult {
   const baseResult = calculateV2DrugRowQuantity(
     master,
     row,
@@ -21,6 +28,8 @@ export function calculateV3DrugRowQuantity(
 
   return {
     ...baseResult,
+    requiredQuantity: baseResult.quantity,
+    remainingItems,
     quantity: prescriptionQuantity,
     detail: `${baseResult.detail}、必要${baseResult.quantity}${baseResult.unit} - 残薬${remainingItems}${baseResult.unit} = 処方${prescriptionQuantity}${baseResult.unit}`,
   };
@@ -41,7 +50,7 @@ export function calculateV3DrugRows(
 
       return calculateV3DrugRowQuantity(master, row, prescriptionDays);
     })
-    .filter((result): result is ReturnType<typeof calculateV3DrugRowQuantity> =>
-      Boolean(result && result.quantity > 0),
+    .filter((result): result is V3PrescriptionRowResult =>
+      Boolean(result && result.requiredQuantity > 0),
     );
 }

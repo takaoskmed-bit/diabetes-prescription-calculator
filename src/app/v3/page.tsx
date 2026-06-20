@@ -11,6 +11,7 @@ import {
 } from "@/utils/calculateV2";
 import {
   calculateV3DrugRows,
+  type V3PrescriptionRowResult,
   type V3PrescriptionRowInput,
 } from "@/utils/calculateV3";
 import {
@@ -99,6 +100,11 @@ const groupedMasters = V2_DRUG_MASTERS.reduce(
 
 let lastFocusedNumberInput: HTMLInputElement | null = null;
 
+const hasV3RequiredQuantity = (
+  result: QuantityResult,
+): result is V3PrescriptionRowResult =>
+  "requiredQuantity" in result && typeof result.requiredQuantity === "number";
+
 export default function V3Page() {
   const [prescriptionDays, setPrescriptionDays] = useState("");
   const [measurementsPerDay, setMeasurementsPerDay] = useState("");
@@ -163,7 +169,11 @@ export default function V3Page() {
         prescriptionDaysNumber,
       ),
       ...(cgmResult ? [cgmResult] : []),
-    ].filter((result) => result.quantity > 0);
+    ].filter(
+      (result) =>
+        result.quantity > 0 ||
+        (hasV3RequiredQuantity(result) && result.requiredQuantity > 0),
+    );
   }, [
     dailyInjectionCount,
     inputRows,
