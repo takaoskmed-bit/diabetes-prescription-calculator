@@ -15,6 +15,7 @@ import {
 } from "./calculate";
 import { V2_DRUG_MASTERS } from "@/lib/v2Master";
 import { calculateV2DrugRowQuantity } from "./calculateV2";
+import { calculateV3DrugRowQuantity } from "./calculateV3";
 
 describe("calculateDailyDrugQuantity", () => {
   it("超速効型は朝昼晩3回分の空打ちを加えて計算する", () => {
@@ -166,5 +167,43 @@ describe("calculateV2DrugRowQuantity", () => {
         30,
       ).quantity,
     ).toBe(5);
+  });
+});
+
+describe("calculateV3DrugRowQuantity", () => {
+  it("必要本数から残薬本数を差し引く", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "novorapid");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV3DrugRowQuantity(
+        master!,
+        {
+          id: "row-1",
+          drugId: "novorapid",
+          doses: [10, 10, 10],
+          remainingItems: 1,
+        },
+        30,
+      ).quantity,
+    ).toBe(3);
+  });
+
+  it("残薬が必要本数以上なら処方本数を0にする", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "novorapid");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV3DrugRowQuantity(
+        master!,
+        {
+          id: "row-1",
+          drugId: "novorapid",
+          doses: [10, 0, 0],
+          remainingItems: 5,
+        },
+        30,
+      ).quantity,
+    ).toBe(0);
   });
 });

@@ -6,27 +6,31 @@ import { CGM_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
 import type { CgmId, QuantityResult } from "@/lib/types";
 import { V2_DRUG_MASTERS, type V2DrugMaster } from "@/lib/v2Master";
 import {
-  calculateV2DrugRows,
   getV2InjectionsPerInterval,
   validateV2NonNegative,
-  type V2PrescriptionRowInput,
 } from "@/utils/calculateV2";
+import {
+  calculateV3DrugRows,
+  type V3PrescriptionRowInput,
+} from "@/utils/calculateV3";
 import {
   calculateCgmQuantity,
   calculateGlucoseStripQuantity,
   calculateNeedleQuantityFromInjectionPlan,
 } from "@/utils/calculate";
 
-type V2RowState = {
+type V3RowState = {
   id: string;
   drugId: string;
   doses: [string, string, string];
+  remainingItems: string;
 };
 
-const emptyRow = (id = crypto.randomUUID()): V2RowState => ({
+const emptyRow = (id = crypto.randomUUID()): V3RowState => ({
   id,
   drugId: "",
   doses: ["", "", ""],
+  remainingItems: "",
 });
 
 const normalizeNumericText = (value: string) =>
@@ -77,10 +81,11 @@ const toNumber = (value: string) => {
   return Number(normalizedValue);
 };
 
-const rowToInput = (row: V2RowState): V2PrescriptionRowInput => ({
+const rowToInput = (row: V3RowState): V3PrescriptionRowInput => ({
   id: row.id,
   drugId: row.drugId,
   doses: row.doses.map(toNumber) as [number, number, number],
+  remainingItems: toNumber(row.remainingItems),
 });
 
 const groupedMasters = V2_DRUG_MASTERS.reduce(
@@ -94,11 +99,11 @@ const groupedMasters = V2_DRUG_MASTERS.reduce(
 
 let lastFocusedNumberInput: HTMLInputElement | null = null;
 
-export default function V2Page() {
+export default function V3Page() {
   const [prescriptionDays, setPrescriptionDays] = useState("");
   const [measurementsPerDay, setMeasurementsPerDay] = useState("");
   const [cgmId, setCgmId] = useState<CgmId>("none");
-  const [rows, setRows] = useState<V2RowState[]>([emptyRow("initial-row")]);
+  const [rows, setRows] = useState<V3RowState[]>([emptyRow("initial-row")]);
   const [copied, setCopied] = useState(false);
   const prescriptionDaysNumber = toNumber(prescriptionDays);
   const measurementsPerDayNumber = toNumber(measurementsPerDay);
@@ -140,7 +145,7 @@ export default function V2Page() {
     const cgmResult = calculateCgmQuantity(selectedCgm, prescriptionDaysNumber);
 
     return [
-      ...calculateV2DrugRows(
+      ...calculateV3DrugRows(
       V2_DRUG_MASTERS,
       inputRows,
       prescriptionDaysNumber,
@@ -172,7 +177,7 @@ export default function V2Page() {
 
   const selectedDrugCount = rows.filter((row) => row.drugId).length;
 
-  const updateRow = (rowId: string, nextRow: Partial<V2RowState>) => {
+  const updateRow = (rowId: string, nextRow: Partial<V3RowState>) => {
     setRows((currentRows) => {
       const nextRows = currentRows.map((row) =>
         row.id === rowId ? { ...row, ...nextRow } : row,
@@ -196,7 +201,7 @@ export default function V2Page() {
   };
 
   const copyText = [
-    "処方量計算結果 ver.2",
+    "処方量計算結果 ver.3",
     `処方日数: ${prescriptionDaysNumber}日`,
     ...results.map(
       (result) =>
@@ -215,23 +220,17 @@ export default function V2Page() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-cyan-700">ver.2</p>
+            <p className="text-sm font-semibold text-cyan-700">ver.3</p>
             <h1 className="mt-1 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
-              インスリン・GLP-1RA 選択式処方量計算
+              インスリン・GLP-1RA 残薬差し引き処方量計算
             </h1>
           </div>
           <div className="no-print flex flex-wrap gap-2">
             <Link
-              href="/"
+              href="/v2"
               className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
             >
-              ver.1へ
-            </Link>
-            <Link
-              href="/v3"
-              className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
-            >
-              ver.3へ
+              ver.2へ
             </Link>
             <button
               type="button"
@@ -295,7 +294,7 @@ export default function V2Page() {
                     </span>
                     <input
                       type="radio"
-                      name="v2-cgm"
+                      name="v3-cgm"
                       value={cgm.id}
                       checked={cgmId === cgm.id}
                       onChange={() => setCgmId(cgm.id)}
@@ -325,6 +324,9 @@ export default function V2Page() {
                           drugId,
                           doses: ["", "", ""],
                         })
+                      }
+                      onRemainingItemsChange={(remainingItems) =>
+                        updateRow(row.id, { remainingItems })
                       }
                       onDoseChange={(doseIndex, value) => {
                         const nextDoses = [...row.doses] as [
@@ -424,12 +426,14 @@ function DrugSelectionRow({
   index,
   selectedDrug,
   onDrugChange,
+  onRemainingItemsChange,
   onDoseChange,
 }: {
-  row: V2RowState;
+  row: V3RowState;
   index: number;
   selectedDrug?: V2DrugMaster;
   onDrugChange: (drugId: string) => void;
+  onRemainingItemsChange: (value: string) => void;
   onDoseChange: (doseIndex: number, value: string) => void;
 }) {
   const doseLabels =
@@ -443,7 +447,7 @@ function DrugSelectionRow({
 
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 p-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(240px,0.9fr)_minmax(0,1.1fr)] lg:items-end">
+      <div className="grid gap-3 lg:grid-cols-[minmax(240px,0.9fr)_140px_minmax(0,1.1fr)] lg:items-end">
         <label className="block">
           <span className="text-sm font-semibold text-slate-700">
             薬剤 {index + 1}
@@ -465,6 +469,13 @@ function DrugSelectionRow({
             ))}
           </select>
         </label>
+        <NumberField
+          label="残薬"
+          value={row.remainingItems}
+          unit="本"
+          disabled={!selectedDrug}
+          onChange={onRemainingItemsChange}
+        />
         <div className="text-sm text-slate-600">
           {selectedDrug ? (
             <>
