@@ -194,6 +194,15 @@ export default function V4Page() {
     const injectionNeedleTotal =
       dailyInjectionCount * prescriptionDaysNumber +
       weeklyInjectionCount * prescriptionWeeks;
+    const remainingMeasurementNeedleBoxes = toNumber(
+      supplyRemaining.measurementNeedles,
+    );
+    const remainingMeasurementSensorBoxes = toNumber(
+      supplyRemaining.measurementSensors,
+    );
+    const remainingInjectionNeedleBoxes = toNumber(
+      supplyRemaining.injectionNeedles,
+    );
     const cgmRequiredQuantity =
       selectedCgm.daysPerSensor === null || prescriptionDaysNumber <= 0
         ? 0
@@ -226,30 +235,37 @@ export default function V4Page() {
         id: "measurementNeedles",
         label: "測定針",
         totalItems: measurementTotal,
-        remainingItems: toNumber(supplyRemaining.measurementNeedles),
+        remainingItems:
+          remainingMeasurementNeedleBoxes * MEASUREMENT_NEEDLE_PACKAGE_SIZE,
         packageSize: MEASUREMENT_NEEDLE_PACKAGE_SIZE,
         itemUnitLabel: "本",
         packageUnitLabel: "箱",
+        remainingDetail: `${remainingMeasurementNeedleBoxes}箱（${remainingMeasurementNeedleBoxes * MEASUREMENT_NEEDLE_PACKAGE_SIZE}本）`,
         baseDetail: `${measurementsPerDayNumber}回/日 x ${prescriptionDaysNumber}日 = ${measurementTotal}本`,
       }),
       calculatePackagedQuantityWithRemaining({
         id: "measurementSensors",
         label: "測定センサー",
         totalItems: measurementTotal,
-        remainingItems: toNumber(supplyRemaining.measurementSensors),
+        remainingItems:
+          remainingMeasurementSensorBoxes *
+          SUPPLY_MASTERS.glucoseStrips.packageSize,
         packageSize: SUPPLY_MASTERS.glucoseStrips.packageSize,
         itemUnitLabel: SUPPLY_MASTERS.glucoseStrips.itemUnitLabel,
         packageUnitLabel: SUPPLY_MASTERS.glucoseStrips.packageUnitLabel,
+        remainingDetail: `${remainingMeasurementSensorBoxes}箱（${remainingMeasurementSensorBoxes * SUPPLY_MASTERS.glucoseStrips.packageSize}${SUPPLY_MASTERS.glucoseStrips.itemUnitLabel}）`,
         baseDetail: `${measurementsPerDayNumber}回/日 x ${prescriptionDaysNumber}日 = ${measurementTotal}${SUPPLY_MASTERS.glucoseStrips.itemUnitLabel}`,
       }),
       calculatePackagedQuantityWithRemaining({
         id: "needles",
         label: SUPPLY_MASTERS.needles.name,
         totalItems: injectionNeedleTotal,
-        remainingItems: toNumber(supplyRemaining.injectionNeedles),
+        remainingItems:
+          remainingInjectionNeedleBoxes * SUPPLY_MASTERS.needles.packageSize,
         packageSize: SUPPLY_MASTERS.needles.packageSize,
         itemUnitLabel: SUPPLY_MASTERS.needles.itemUnitLabel,
         packageUnitLabel: SUPPLY_MASTERS.needles.packageUnitLabel,
+        remainingDetail: `${remainingInjectionNeedleBoxes}箱（${remainingInjectionNeedleBoxes * SUPPLY_MASTERS.needles.packageSize}${SUPPLY_MASTERS.needles.itemUnitLabel}）`,
         baseDetail: `${dailyInjectionCount}回/日 x ${prescriptionDaysNumber}日 + ${weeklyInjectionCount}回/週 x ${prescriptionWeeks}週 = ${injectionNeedleTotal}${SUPPLY_MASTERS.needles.itemUnitLabel}`,
       }),
       ...(cgmResult ? [cgmResult] : []),
@@ -419,7 +435,7 @@ export default function V4Page() {
                 <NumberField
                   label="測定針"
                   value={supplyRemaining.measurementNeedles}
-                  unit="本"
+                  unit="箱"
                   onChange={(value) =>
                     updateSupplyRemaining("measurementNeedles", value)
                   }
@@ -427,7 +443,7 @@ export default function V4Page() {
                 <NumberField
                   label="測定センサー"
                   value={supplyRemaining.measurementSensors}
-                  unit="枚"
+                  unit="箱"
                   onChange={(value) =>
                     updateSupplyRemaining("measurementSensors", value)
                   }
@@ -435,7 +451,7 @@ export default function V4Page() {
                 <NumberField
                   label="注射針"
                   value={supplyRemaining.injectionNeedles}
-                  unit="本"
+                  unit="箱"
                   onChange={(value) =>
                     updateSupplyRemaining("injectionNeedles", value)
                   }

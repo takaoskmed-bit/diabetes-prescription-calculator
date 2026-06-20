@@ -14,6 +14,7 @@ export function calculatePackagedQuantityWithRemaining({
   itemUnitLabel,
   packageUnitLabel,
   baseDetail,
+  remainingDetail,
 }: {
   id: string;
   label: string;
@@ -23,6 +24,7 @@ export function calculatePackagedQuantityWithRemaining({
   itemUnitLabel: string;
   packageUnitLabel: string;
   baseDetail: string;
+  remainingDetail?: string;
 }): QuantityResultWithRequired {
   const safeRemainingItems = Math.max(0, remainingItems);
   const requiredQuantity = totalItems <= 0 ? 0 : Math.ceil(totalItems / packageSize);
@@ -32,7 +34,7 @@ export function calculatePackagedQuantityWithRemaining({
   return {
     id,
     label,
-    detail: `${baseDetail}、必要${totalItems}${itemUnitLabel} - 残数${safeRemainingItems}${itemUnitLabel} = 不足${shortageItems}${itemUnitLabel} / ${packageSize}${itemUnitLabel}`,
+    detail: `${baseDetail}、必要${totalItems}${itemUnitLabel} - 残数${remainingDetail ?? `${safeRemainingItems}${itemUnitLabel}`} = 不足${shortageItems}${itemUnitLabel} / ${packageSize}${itemUnitLabel}`,
     quantity,
     requiredQuantity,
     remainingItems: safeRemainingItems,

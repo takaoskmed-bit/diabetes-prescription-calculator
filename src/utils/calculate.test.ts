@@ -116,6 +116,25 @@ describe("calculate remaining supplies", () => {
     ).toBe(1);
   });
 
+  it("箱で入力された残数を本数換算して箱数計算する", () => {
+    const remainingBoxes = 1;
+    const packageSize = 70;
+
+    expect(
+      calculatePackagedQuantityWithRemaining({
+        id: "needles",
+        label: "注射針",
+        totalItems: 100,
+        remainingItems: remainingBoxes * packageSize,
+        packageSize,
+        itemUnitLabel: "本",
+        packageUnitLabel: "箱",
+        remainingDetail: `${remainingBoxes}箱（${remainingBoxes * packageSize}本）`,
+        baseDetail: "100本必要",
+      }).quantity,
+    ).toBe(1);
+  });
+
   it("残数が十分なら0箱を返す", () => {
     const result = calculatePackagedQuantityWithRemaining({
       id: "measurementSensors",
