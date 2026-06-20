@@ -220,7 +220,7 @@ export default function V3Page() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-cyan-700">ver.3</p>
+            <p className="text-sm font-semibold text-teal-700">ver.3</p>
             <h1 className="mt-1 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
               インスリン・GLP-1RA 残薬差し引き処方量計算
             </h1>
@@ -253,7 +253,7 @@ export default function V3Page() {
           <div className="flex flex-col gap-5">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm print-card">
               <h2 className="text-lg font-bold text-slate-950">基本条件</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 <NumberField
                   label="処方日数"
                   value={prescriptionDays}
@@ -282,7 +282,7 @@ export default function V3Page() {
                     key={cgm.id}
                     className={`flex cursor-pointer items-center justify-between rounded-md border px-4 py-3 ${
                       cgmId === cgm.id
-                        ? "border-cyan-600 bg-cyan-50"
+                        ? "border-teal-600 bg-teal-50"
                         : "border-slate-200 bg-white"
                     }`}
                   >
@@ -298,7 +298,7 @@ export default function V3Page() {
                       value={cgm.id}
                       checked={cgmId === cgm.id}
                       onChange={() => setCgmId(cgm.id)}
-                      className="h-4 w-4 accent-cyan-700"
+                      className="h-4 w-4 accent-teal-700"
                     />
                   </label>
                 ))}
@@ -363,7 +363,7 @@ export default function V3Page() {
                   type="button"
                   onClick={copyResults}
                   disabled={results.length === 0}
-                  className="no-print rounded-md bg-cyan-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-cyan-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="no-print rounded-md bg-teal-700 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   {copied ? "コピー済み" : "結果をコピー"}
                 </button>
@@ -389,7 +389,7 @@ export default function V3Page() {
                             {result.detail}
                           </p>
                         </div>
-                        <p className="whitespace-nowrap text-2xl font-bold text-cyan-800">
+                        <p className="whitespace-nowrap text-2xl font-bold text-teal-800">
                           {result.quantity}
                           <span className="ml-1 text-base text-slate-700">
                             {result.unit}
@@ -447,42 +447,36 @@ function DrugSelectionRow({
 
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 p-3">
-      <div className="grid gap-3 lg:grid-cols-[minmax(240px,0.9fr)_140px_minmax(0,1.1fr)] lg:items-end">
-        <label className="block">
-          <span className="text-sm font-semibold text-slate-700">
-            薬剤 {index + 1}
-          </span>
-          <select
-            value={row.drugId}
-            onChange={(event) => onDrugChange(event.target.value)}
-            className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
-          >
-            <option value="">選択してください</option>
-            {Object.entries(groupedMasters).map(([groupLabel, drugs]) => (
-              <optgroup key={groupLabel} label={groupLabel}>
-                {drugs.map((drug) => (
-                  <option key={drug.id} value={drug.id}>
-                    {drug.name}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </label>
-        <NumberField
-          label="残薬"
-          value={row.remainingItems}
-          unit="本"
-          disabled={!selectedDrug}
-          onChange={onRemainingItemsChange}
-        />
-        <div className="text-sm text-slate-600">
+      <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_240px] sm:items-center">
+        <div>
+          <label className="block">
+            <span className="text-sm font-semibold text-slate-700">
+              薬剤 {index + 1}
+            </span>
+            <select
+              value={row.drugId}
+              onChange={(event) => onDrugChange(event.target.value)}
+              className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-100"
+            >
+              <option value="">選択してください</option>
+              {Object.entries(groupedMasters).map(([groupLabel, drugs]) => (
+                <optgroup key={groupLabel} label={groupLabel}>
+                  {drugs.map((drug) => (
+                    <option key={drug.id} value={drug.id}>
+                      {drug.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </label>
+          <div className="mt-2 text-sm text-slate-600">
           {selectedDrug ? (
             <>
-              <span className="font-semibold text-slate-800">
+              <span className="block font-semibold text-slate-800">
                 {selectedDrug.category}
               </span>
-              <span className="ml-2">
+              <span>
                 1{selectedDrug.itemUnitLabel}あたり{" "}
                 {selectedDrug.doseInputMode === "none"
                   ? "1回分"
@@ -492,7 +486,15 @@ function DrugSelectionRow({
           ) : (
             "薬剤を選ぶと投与量を入力できます。"
           )}
+          </div>
         </div>
+        <NumberField
+          label="残薬"
+          value={row.remainingItems}
+          unit="本"
+          disabled={!selectedDrug}
+          onChange={onRemainingItemsChange}
+        />
       </div>
       {needsDoseInput ? (
         <div className="grid gap-3 sm:grid-cols-3">
@@ -508,7 +510,7 @@ function DrugSelectionRow({
           ))}
         </div>
       ) : (
-        <div className="rounded-md border border-cyan-100 bg-cyan-50 px-3 py-2 text-sm text-cyan-900">
+        <div className="rounded-md border border-teal-100 bg-teal-50 px-3 py-2 text-sm text-teal-900">
           投与量入力は不要です。処方日数を7で割り、切り上げた回数で本数を計算します。
         </div>
       )}
@@ -532,7 +534,7 @@ function NumberField({
   return (
     <label className="block">
       <span className="text-sm font-semibold text-slate-700">{label}</span>
-      <span className="mt-1 flex items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-cyan-600 focus-within:ring-2 focus-within:ring-cyan-100">
+      <span className="mt-1 flex items-center overflow-hidden rounded-md border border-slate-300 bg-white focus-within:border-teal-600 focus-within:ring-2 focus-within:ring-teal-100">
         <input
           type="text"
           data-numeric-input="true"
