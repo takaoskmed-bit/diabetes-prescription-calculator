@@ -22,6 +22,17 @@ export function getV2InjectionsPerInterval(
   return row.doses.filter((dose) => dose > 0).length;
 }
 
+export function getV2NeedleCountPerInterval(
+  master: V2DrugMaster,
+  row: V2PrescriptionRowInput,
+) {
+  if (master.doseInputMode === "none") {
+    return 0;
+  }
+
+  return getV2InjectionsPerInterval(master, row);
+}
+
 export const validateV2NonNegative = (
   rows: V2PrescriptionRowInput[],
   prescriptionDays: number,

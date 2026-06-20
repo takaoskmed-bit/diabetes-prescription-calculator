@@ -6,7 +6,7 @@ import { CGM_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
 import type { CgmId, QuantityResult } from "@/lib/types";
 import { V2_DRUG_MASTERS, type V2DrugMaster } from "@/lib/v2Master";
 import {
-  getV2InjectionsPerInterval,
+  getV2NeedleCountPerInterval,
   validateV2NonNegative,
 } from "@/utils/calculateV2";
 import {
@@ -132,7 +132,7 @@ export default function V3Page() {
       return count;
     }
 
-    return count + getV2InjectionsPerInterval(drug, row);
+    return count + getV2NeedleCountPerInterval(drug, row);
   }, 0);
   const weeklyInjectionCount = inputRows.reduce((count, row) => {
     const drug = V2_DRUG_MASTERS.find((master) => master.id === row.drugId);
@@ -141,7 +141,7 @@ export default function V3Page() {
       return count;
     }
 
-    return count + getV2InjectionsPerInterval(drug, row);
+    return count + getV2NeedleCountPerInterval(drug, row);
   }, 0);
   const results = useMemo<QuantityResult[]>(() => {
     if (validationErrors.length > 0) {

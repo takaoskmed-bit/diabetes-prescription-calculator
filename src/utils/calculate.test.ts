@@ -14,7 +14,10 @@ import {
   validateNonNegative,
 } from "./calculate";
 import { V2_DRUG_MASTERS } from "@/lib/v2Master";
-import { calculateV2DrugRowQuantity } from "./calculateV2";
+import {
+  calculateV2DrugRowQuantity,
+  getV2NeedleCountPerInterval,
+} from "./calculateV2";
 import { calculateV3DrugRowQuantity, calculateV3DrugRows } from "./calculateV3";
 
 describe("calculateDailyDrugQuantity", () => {
@@ -167,6 +170,30 @@ describe("calculateV2DrugRowQuantity", () => {
         30,
       ).quantity,
     ).toBe(5);
+  });
+});
+
+describe("getV2NeedleCountPerInterval", () => {
+  it("トルリシティとマンジャロは注射針にカウントしない", () => {
+    const trulicity = V2_DRUG_MASTERS.find((drug) => drug.id === "trulicity");
+    const mounjaro = V2_DRUG_MASTERS.find((drug) => drug.id === "mounjaro");
+
+    expect(trulicity).toBeDefined();
+    expect(mounjaro).toBeDefined();
+    expect(
+      getV2NeedleCountPerInterval(trulicity!, {
+        id: "row-1",
+        drugId: "trulicity",
+        doses: [0, 0, 0],
+      }),
+    ).toBe(0);
+    expect(
+      getV2NeedleCountPerInterval(mounjaro!, {
+        id: "row-2",
+        drugId: "mounjaro",
+        doses: [0, 0, 0],
+      }),
+    ).toBe(0);
   });
 });
 
