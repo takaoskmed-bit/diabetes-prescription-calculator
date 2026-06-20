@@ -14,12 +14,13 @@ export type V2DrugMaster = {
   itemUnitLabel: string;
   primingUnitsPerInjection: number;
   quantityBasis: "amount" | "doseCount";
+  doseInputMode?: "threeDoses" | "none";
 };
 
 export const V2_DRUG_MASTERS: V2DrugMaster[] = [
   {
     id: "novorapid",
-    name: "ノボラピッド",
+    name: "ノボラピッド（アスパルト）",
     kind: "insulin",
     category: "超速効型",
     dosingInterval: "daily",
@@ -45,7 +46,7 @@ export const V2_DRUG_MASTERS: V2DrugMaster[] = [
   },
   {
     id: "humalog",
-    name: "ヒューマログ",
+    name: "ヒューマログ（リスプロ）",
     kind: "insulin",
     category: "超速効型",
     dosingInterval: "daily",
@@ -209,7 +210,7 @@ export const V2_DRUG_MASTERS: V2DrugMaster[] = [
     amountPerItem: 700,
     amountUnitLabel: "単位",
     itemUnitLabel: "本",
-    primingUnitsPerInjection: 2,
+    primingUnitsPerInjection: 10,
     quantityBasis: "amount",
   },
   {
@@ -352,7 +353,7 @@ export const V2_DRUG_MASTERS: V2DrugMaster[] = [
     amountPerItem: 18,
     amountUnitLabel: "mg",
     itemUnitLabel: "本",
-    primingUnitsPerInjection: 0,
+    primingUnitsPerInjection: 0.12,
     quantityBasis: "amount",
   },
   {
@@ -367,6 +368,7 @@ export const V2_DRUG_MASTERS: V2DrugMaster[] = [
     itemUnitLabel: "本",
     primingUnitsPerInjection: 0,
     quantityBasis: "doseCount",
+    doseInputMode: "none",
   },
   {
     id: "ozempic",
@@ -393,5 +395,6 @@ export const V2_DRUG_MASTERS: V2DrugMaster[] = [
     itemUnitLabel: "本",
     primingUnitsPerInjection: 0,
     quantityBasis: "doseCount",
+    doseInputMode: "none",
   },
 ];

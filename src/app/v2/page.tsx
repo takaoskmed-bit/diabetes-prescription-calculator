@@ -2,12 +2,20 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { CGM_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
+import type { CgmId, QuantityResult } from "@/lib/types";
 import { V2_DRUG_MASTERS, type V2DrugMaster } from "@/lib/v2Master";
 import {
   calculateV2DrugRows,
+  getV2InjectionsPerInterval,
   validateV2NonNegative,
   type V2PrescriptionRowInput,
 } from "@/utils/calculateV2";
+import {
+  calculateCgmQuantity,
+  calculateGlucoseStripQuantity,
+  calculateNeedleQuantityFromInjectionPlan,
+} from "@/utils/calculate";
 
 type V2RowState = {
   id: string;
@@ -88,28 +96,24 @@ let lastFocusedNumberInput: HTMLInputElement | null = null;
 
 export default function V2Page() {
   const [prescriptionDays, setPrescriptionDays] = useState("");
+  const [measurementsPerDay, setMeasurementsPerDay] = useState("");
+  const [cgmId, setCgmId] = useState<CgmId>("none");
   const [rows, setRows] = useState<V2RowState[]>([emptyRow("initial-row")]);
   const [copied, setCopied] = useState(false);
   const prescriptionDaysNumber = toNumber(prescriptionDays);
+  const measurementsPerDayNumber = toNumber(measurementsPerDay);
+  const prescriptionWeeks = Math.ceil(prescriptionDaysNumber / 7);
+  const selectedCgm =
+    CGM_MASTERS.find((cgm) => cgm.id === cgmId) ?? CGM_MASTERS[0];
 
   const inputRows = useMemo(() => rows.map(rowToInput), [rows]);
   const validationErrors = useMemo(
-    () => validateV2NonNegative(inputRows, prescriptionDaysNumber),
-    [inputRows, prescriptionDaysNumber],
+    () =>
+      validateV2NonNegative(inputRows, prescriptionDaysNumber, {
+        measurementsPerDay: measurementsPerDayNumber,
+      }),
+    [inputRows, prescriptionDaysNumber, measurementsPerDayNumber],
   );
-  const results = useMemo(() => {
-    if (validationErrors.length > 0) {
-      return [];
-    }
-
-    return calculateV2DrugRows(
-      V2_DRUG_MASTERS,
-      inputRows,
-      prescriptionDaysNumber,
-    );
-  }, [inputRows, prescriptionDaysNumber, validationErrors.length]);
-
-  const selectedDrugCount = rows.filter((row) => row.drugId).length;
   const dailyInjectionCount = inputRows.reduce((count, row) => {
     const drug = V2_DRUG_MASTERS.find((master) => master.id === row.drugId);
 
@@ -117,7 +121,7 @@ export default function V2Page() {
       return count;
     }
 
-    return count + row.doses.filter((dose) => dose > 0).length;
+    return count + getV2InjectionsPerInterval(drug, row);
   }, 0);
   const weeklyInjectionCount = inputRows.reduce((count, row) => {
     const drug = V2_DRUG_MASTERS.find((master) => master.id === row.drugId);
@@ -126,8 +130,47 @@ export default function V2Page() {
       return count;
     }
 
-    return count + row.doses.filter((dose) => dose > 0).length;
+    return count + getV2InjectionsPerInterval(drug, row);
   }, 0);
+  const results = useMemo<QuantityResult[]>(() => {
+    if (validationErrors.length > 0) {
+      return [];
+    }
+
+    const cgmResult = calculateCgmQuantity(selectedCgm, prescriptionDaysNumber);
+
+    return [
+      ...calculateV2DrugRows(
+      V2_DRUG_MASTERS,
+      inputRows,
+      prescriptionDaysNumber,
+      ),
+      calculateNeedleQuantityFromInjectionPlan(
+        SUPPLY_MASTERS.needles,
+        dailyInjectionCount,
+        prescriptionDaysNumber,
+        weeklyInjectionCount,
+        prescriptionWeeks,
+      ),
+      calculateGlucoseStripQuantity(
+        SUPPLY_MASTERS.glucoseStrips,
+        measurementsPerDayNumber,
+        prescriptionDaysNumber,
+      ),
+      ...(cgmResult ? [cgmResult] : []),
+    ].filter((result) => result.quantity > 0);
+  }, [
+    dailyInjectionCount,
+    inputRows,
+    measurementsPerDayNumber,
+    prescriptionDaysNumber,
+    prescriptionWeeks,
+    selectedCgm,
+    validationErrors.length,
+    weeklyInjectionCount,
+  ]);
+
+  const selectedDrugCount = rows.filter((row) => row.drugId).length;
 
   const updateRow = (rowId: string, nextRow: Partial<V2RowState>) => {
     setRows((currentRows) => {
@@ -146,6 +189,8 @@ export default function V2Page() {
 
   const reset = () => {
     setPrescriptionDays("");
+    setMeasurementsPerDay("");
+    setCgmId("none");
     setRows([emptyRow()]);
     setCopied(false);
   };
@@ -203,18 +248,55 @@ export default function V2Page() {
           <div className="flex flex-col gap-5">
             <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm print-card">
               <h2 className="text-lg font-bold text-slate-950">基本条件</h2>
-              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <NumberField
                   label="処方日数"
                   value={prescriptionDays}
                   unit="日"
                   onChange={setPrescriptionDays}
                 />
+                <NumberField
+                  label="血糖測定回数"
+                  value={measurementsPerDay}
+                  unit="回/日"
+                  onChange={setMeasurementsPerDay}
+                />
                 <InfoBox label="選択薬剤" value={`${selectedDrugCount}件`} />
                 <InfoBox
                   label="注射回数"
                   value={`${dailyInjectionCount}回/日 + ${weeklyInjectionCount}回/週`}
                 />
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm print-card">
+              <h2 className="text-lg font-bold text-slate-950">CGM</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {CGM_MASTERS.map((cgm) => (
+                  <label
+                    key={cgm.id}
+                    className={`flex cursor-pointer items-center justify-between rounded-md border px-4 py-3 ${
+                      cgmId === cgm.id
+                        ? "border-cyan-600 bg-cyan-50"
+                        : "border-slate-200 bg-white"
+                    }`}
+                  >
+                    <span>
+                      <span className="block font-semibold">{cgm.name}</span>
+                      <span className="text-sm text-slate-500">
+                        {cgm.daysPerSensor ? `${cgm.daysPerSensor}日ごと` : "使用なし"}
+                      </span>
+                    </span>
+                    <input
+                      type="radio"
+                      name="v2-cgm"
+                      value={cgm.id}
+                      checked={cgmId === cgm.id}
+                      onChange={() => setCgmId(cgm.id)}
+                      className="h-4 w-4 accent-cyan-700"
+                    />
+                  </label>
+                ))}
               </div>
             </section>
 
@@ -282,7 +364,7 @@ export default function V2Page() {
               <div className="mt-4 grid gap-3">
                 {results.length === 0 ? (
                   <div className="rounded-md border border-dashed border-slate-300 p-5 text-sm text-slate-500">
-                    薬剤、投与量、処方日数を入力すると結果が表示されます。
+                    薬剤、処方日数、必要な測定条件を入力すると結果が表示されます。
                   </div>
                 ) : (
                   results.map((result) => (
@@ -351,6 +433,7 @@ function DrugSelectionRow({
   const unit = selectedDrug
     ? `${selectedDrug.doseUnit}/${selectedDrug.dosingInterval === "weekly" ? "週" : "日"}`
     : "";
+  const needsDoseInput = selectedDrug?.doseInputMode !== "none";
 
   return (
     <div className="grid gap-3 rounded-md border border-slate-200 p-3">
@@ -384,7 +467,7 @@ function DrugSelectionRow({
               </span>
               <span className="ml-2">
                 1{selectedDrug.itemUnitLabel}あたり{" "}
-                {selectedDrug.quantityBasis === "doseCount"
+                {selectedDrug.doseInputMode === "none"
                   ? "1回分"
                   : `${selectedDrug.amountPerItem}${selectedDrug.amountUnitLabel}`}
               </span>
@@ -394,18 +477,24 @@ function DrugSelectionRow({
           )}
         </div>
       </div>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {row.doses.map((dose, doseIndex) => (
-          <NumberField
-            key={`${row.id}-${doseIndex}`}
-            label={doseLabels[doseIndex]}
-            value={dose}
-            unit={unit}
-            disabled={!selectedDrug}
-            onChange={(value) => onDoseChange(doseIndex, value)}
-          />
-        ))}
-      </div>
+      {needsDoseInput ? (
+        <div className="grid gap-3 sm:grid-cols-3">
+          {row.doses.map((dose, doseIndex) => (
+            <NumberField
+              key={`${row.id}-${doseIndex}`}
+              label={doseLabels[doseIndex]}
+              value={dose}
+              unit={unit}
+              disabled={!selectedDrug}
+              onChange={(value) => onDoseChange(doseIndex, value)}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border border-cyan-100 bg-cyan-50 px-3 py-2 text-sm text-cyan-900">
+          投与量入力は不要です。処方日数を7で割り、切り上げた回数で本数を計算します。
+        </div>
+      )}
     </div>
   );
 }

@@ -115,4 +115,43 @@ describe("calculateV2DrugRowQuantity", () => {
       ).quantity,
     ).toBe(4);
   });
+
+  it("アウィクリは空打ち10単位で計算する", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "awiqli");
+    const result = calculateV2DrugRowQuantity(
+      master!,
+      { id: "row-1", drugId: "awiqli", doses: [140, 0, 0] },
+      28,
+    );
+
+    expect(master).toBeDefined();
+    expect(result.detail).toContain("空打ち10単位");
+    expect(result.quantity).toBe(1);
+  });
+
+  it("ビクトーザは空打ち0.12mgで計算する", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "victoza");
+    const result = calculateV2DrugRowQuantity(
+      master!,
+      { id: "row-1", drugId: "victoza", doses: [0.6, 0, 0] },
+      30,
+    );
+
+    expect(master).toBeDefined();
+    expect(result.detail).toContain("空打ち0.12mg");
+    expect(result.quantity).toBe(2);
+  });
+
+  it("マンジャロは投与量なしで処方日数/7を切り上げる", () => {
+    const master = V2_DRUG_MASTERS.find((drug) => drug.id === "mounjaro");
+
+    expect(master).toBeDefined();
+    expect(
+      calculateV2DrugRowQuantity(
+        master!,
+        { id: "row-1", drugId: "mounjaro", doses: [0, 0, 0] },
+        30,
+      ).quantity,
+    ).toBe(5);
+  });
 });

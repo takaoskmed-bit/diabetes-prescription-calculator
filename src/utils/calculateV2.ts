@@ -11,12 +11,25 @@ export type V2PrescriptionRowResult = QuantityResult & {
   rowId: string;
 };
 
+export function getV2InjectionsPerInterval(
+  master: V2DrugMaster,
+  row: V2PrescriptionRowInput,
+) {
+  if (master.doseInputMode === "none") {
+    return row.drugId ? 1 : 0;
+  }
+
+  return row.doses.filter((dose) => dose > 0).length;
+}
+
 export const validateV2NonNegative = (
   rows: V2PrescriptionRowInput[],
   prescriptionDays: number,
+  extraValues: Record<string, number> = {},
 ): ValidationError[] => {
   const values = {
     prescriptionDays,
+    ...extraValues,
     ...Object.fromEntries(
       rows.flatMap((row) =>
         row.doses.map((dose, index) => [`${row.id}.dose${index + 1}`, dose]),
@@ -39,16 +52,14 @@ export function calculateV2DrugRowQuantity(
 ): V2PrescriptionRowResult {
   const activeDoses = row.doses.filter((dose) => dose > 0);
   const doseTotal = activeDoses.reduce((sum, dose) => sum + dose, 0);
-  const injectionsPerInterval = activeDoses.length;
+  const injectionsPerInterval = getV2InjectionsPerInterval(master, row);
   const prescriptionWeeks = Math.ceil(prescriptionDays / 7);
   const intervalCount =
     master.dosingInterval === "weekly" ? prescriptionWeeks : prescriptionDays;
   const intervalLabel = master.dosingInterval === "weekly" ? "週" : "日";
   const doseLabel = `${doseTotal}${master.doseUnit}`;
   const primingPerInterval =
-    master.kind === "insulin"
-      ? master.primingUnitsPerInjection * injectionsPerInterval
-      : 0;
+    master.primingUnitsPerInjection * injectionsPerInterval;
   const totalAmount =
     master.quantityBasis === "doseCount"
       ? injectionsPerInterval * intervalCount
@@ -64,7 +75,7 @@ export function calculateV2DrugRowQuantity(
       : "";
   const detail =
     master.quantityBasis === "doseCount"
-      ? `${injectionsPerInterval}回/${intervalLabel} x ${intervalCount}${intervalLabel} = ${totalAmount}回分`
+      ? `${prescriptionDays}日 / 7日 = ${intervalCount}回分`
       : `(${doseLabel}/${intervalLabel}${primingDetail}) x ${intervalCount}${intervalLabel} = ${totalAmount}${master.amountUnitLabel} / ${master.amountPerItem}${master.amountUnitLabel}`;
 
   return {
