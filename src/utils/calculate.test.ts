@@ -20,6 +20,10 @@ import {
 } from "./calculateV2";
 import { calculateV3DrugRowQuantity, calculateV3DrugRows } from "./calculateV3";
 import { calculateDaysUntilDate } from "./date";
+import {
+  calculatePackagedQuantityWithRemaining,
+  calculateUnitQuantityWithRemaining,
+} from "./calculateRemaining";
 
 describe("calculateDailyDrugQuantity", () => {
   it("超速効型は朝昼晩3回分の空打ちを加えて計算する", () => {
@@ -92,6 +96,52 @@ describe("calculateGlucoseStripQuantity", () => {
     expect(
       calculateGlucoseStripQuantity(SUPPLY_MASTERS.glucoseStrips, 2, 30)
         .quantity,
+    ).toBe(2);
+  });
+});
+
+describe("calculate remaining supplies", () => {
+  it("残数を差し引いて箱数を計算する", () => {
+    expect(
+      calculatePackagedQuantityWithRemaining({
+        id: "needles",
+        label: "注射針",
+        totalItems: 100,
+        remainingItems: 40,
+        packageSize: 70,
+        itemUnitLabel: "本",
+        packageUnitLabel: "箱",
+        baseDetail: "100本必要",
+      }).quantity,
+    ).toBe(1);
+  });
+
+  it("残数が十分なら0箱を返す", () => {
+    const result = calculatePackagedQuantityWithRemaining({
+      id: "measurementSensors",
+      label: "測定センサー",
+      totalItems: 30,
+      remainingItems: 30,
+      packageSize: 30,
+      itemUnitLabel: "枚",
+      packageUnitLabel: "箱",
+      baseDetail: "30枚必要",
+    });
+
+    expect(result.quantity).toBe(0);
+    expect(result.requiredQuantity).toBe(1);
+  });
+
+  it("リブレやG7の個数から残数を差し引く", () => {
+    expect(
+      calculateUnitQuantityWithRemaining({
+        id: "libre",
+        label: "リブレ",
+        requiredItems: 3,
+        remainingItems: 1,
+        itemUnitLabel: "個",
+        baseDetail: "30日 / 14日ごと",
+      }).quantity,
     ).toBe(2);
   });
 });

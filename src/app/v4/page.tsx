@@ -15,11 +15,14 @@ import {
   type V3PrescriptionRowInput,
 } from "@/utils/calculateV3";
 import {
-  calculateCgmQuantity,
-  calculateGlucoseStripQuantity,
-  calculateNeedleQuantityFromInjectionPlan,
+  roundUp,
 } from "@/utils/calculate";
 import { calculateDaysUntilDate, formatDateInputValue } from "@/utils/date";
+import {
+  calculatePackagedQuantityWithRemaining,
+  calculateUnitQuantityWithRemaining,
+  type QuantityResultWithRequired,
+} from "@/utils/calculateRemaining";
 
 type V3RowState = {
   id: string;
@@ -28,12 +31,30 @@ type V3RowState = {
   remainingItems: string;
 };
 
+type SupplyRemainingState = {
+  measurementNeedles: string;
+  measurementSensors: string;
+  injectionNeedles: string;
+  libre: string;
+  dexcomG7: string;
+};
+
 const emptyRow = (id = crypto.randomUUID()): V3RowState => ({
   id,
   drugId: "",
   doses: ["", "", ""],
   remainingItems: "",
 });
+
+const initialSupplyRemaining: SupplyRemainingState = {
+  measurementNeedles: "",
+  measurementSensors: "",
+  injectionNeedles: "",
+  libre: "",
+  dexcomG7: "",
+};
+
+const MEASUREMENT_NEEDLE_PACKAGE_SIZE = 30;
 
 const normalizeNumericText = (value: string) =>
   value
@@ -103,7 +124,7 @@ let lastFocusedNumberInput: HTMLInputElement | null = null;
 
 const hasV3RequiredQuantity = (
   result: QuantityResult,
-): result is V3PrescriptionRowResult =>
+): result is V3PrescriptionRowResult | QuantityResultWithRequired =>
   "requiredQuantity" in result && typeof result.requiredQuantity === "number";
 
 export default function V4Page() {
@@ -112,6 +133,7 @@ export default function V4Page() {
   const [visitDate, setVisitDate] = useState(todayDateInputValue);
   const [nextVisitDate, setNextVisitDate] = useState("");
   const [measurementsPerDay, setMeasurementsPerDay] = useState("");
+  const [supplyRemaining, setSupplyRemaining] = useState(initialSupplyRemaining);
   const [cgmId, setCgmId] = useState<CgmId>("none");
   const [rows, setRows] = useState<V3RowState[]>([emptyRow("initial-row")]);
   const [copied, setCopied] = useState(false);
@@ -126,8 +148,24 @@ export default function V4Page() {
     () =>
       validateV2NonNegative(inputRows, prescriptionDaysNumber, {
         measurementsPerDay: measurementsPerDayNumber,
+        "supplyRemaining.measurementNeedles": toNumber(
+          supplyRemaining.measurementNeedles,
+        ),
+        "supplyRemaining.measurementSensors": toNumber(
+          supplyRemaining.measurementSensors,
+        ),
+        "supplyRemaining.injectionNeedles": toNumber(
+          supplyRemaining.injectionNeedles,
+        ),
+        "supplyRemaining.libre": toNumber(supplyRemaining.libre),
+        "supplyRemaining.dexcomG7": toNumber(supplyRemaining.dexcomG7),
       }),
-    [inputRows, prescriptionDaysNumber, measurementsPerDayNumber],
+    [
+      inputRows,
+      prescriptionDaysNumber,
+      measurementsPerDayNumber,
+      supplyRemaining,
+    ],
   );
   const dailyInjectionCount = inputRows.reduce((count, row) => {
     const drug = V2_DRUG_MASTERS.find((master) => master.id === row.drugId);
@@ -152,7 +190,31 @@ export default function V4Page() {
       return [];
     }
 
-    const cgmResult = calculateCgmQuantity(selectedCgm, prescriptionDaysNumber);
+    const measurementTotal = measurementsPerDayNumber * prescriptionDaysNumber;
+    const injectionNeedleTotal =
+      dailyInjectionCount * prescriptionDaysNumber +
+      weeklyInjectionCount * prescriptionWeeks;
+    const cgmRequiredQuantity =
+      selectedCgm.daysPerSensor === null || prescriptionDaysNumber <= 0
+        ? 0
+        : roundUp(prescriptionDaysNumber / selectedCgm.daysPerSensor);
+    const cgmRemainingItems =
+      selectedCgm.id === "libre"
+        ? toNumber(supplyRemaining.libre)
+        : selectedCgm.id === "dexcomG7"
+          ? toNumber(supplyRemaining.dexcomG7)
+          : 0;
+    const cgmResult =
+      selectedCgm.daysPerSensor === null
+        ? null
+        : calculateUnitQuantityWithRemaining({
+            id: selectedCgm.id,
+            label: selectedCgm.name,
+            requiredItems: cgmRequiredQuantity,
+            remainingItems: cgmRemainingItems,
+            itemUnitLabel: "個",
+            baseDetail: `${prescriptionDaysNumber}日 / ${selectedCgm.daysPerSensor}日ごと`,
+          });
 
     return [
       ...calculateV3DrugRows(
@@ -160,18 +222,36 @@ export default function V4Page() {
       inputRows,
       prescriptionDaysNumber,
       ),
-      calculateNeedleQuantityFromInjectionPlan(
-        SUPPLY_MASTERS.needles,
-        dailyInjectionCount,
-        prescriptionDaysNumber,
-        weeklyInjectionCount,
-        prescriptionWeeks,
-      ),
-      calculateGlucoseStripQuantity(
-        SUPPLY_MASTERS.glucoseStrips,
-        measurementsPerDayNumber,
-        prescriptionDaysNumber,
-      ),
+      calculatePackagedQuantityWithRemaining({
+        id: "measurementNeedles",
+        label: "測定針",
+        totalItems: measurementTotal,
+        remainingItems: toNumber(supplyRemaining.measurementNeedles),
+        packageSize: MEASUREMENT_NEEDLE_PACKAGE_SIZE,
+        itemUnitLabel: "本",
+        packageUnitLabel: "箱",
+        baseDetail: `${measurementsPerDayNumber}回/日 x ${prescriptionDaysNumber}日 = ${measurementTotal}本`,
+      }),
+      calculatePackagedQuantityWithRemaining({
+        id: "measurementSensors",
+        label: "測定センサー",
+        totalItems: measurementTotal,
+        remainingItems: toNumber(supplyRemaining.measurementSensors),
+        packageSize: SUPPLY_MASTERS.glucoseStrips.packageSize,
+        itemUnitLabel: SUPPLY_MASTERS.glucoseStrips.itemUnitLabel,
+        packageUnitLabel: SUPPLY_MASTERS.glucoseStrips.packageUnitLabel,
+        baseDetail: `${measurementsPerDayNumber}回/日 x ${prescriptionDaysNumber}日 = ${measurementTotal}${SUPPLY_MASTERS.glucoseStrips.itemUnitLabel}`,
+      }),
+      calculatePackagedQuantityWithRemaining({
+        id: "needles",
+        label: SUPPLY_MASTERS.needles.name,
+        totalItems: injectionNeedleTotal,
+        remainingItems: toNumber(supplyRemaining.injectionNeedles),
+        packageSize: SUPPLY_MASTERS.needles.packageSize,
+        itemUnitLabel: SUPPLY_MASTERS.needles.itemUnitLabel,
+        packageUnitLabel: SUPPLY_MASTERS.needles.packageUnitLabel,
+        baseDetail: `${dailyInjectionCount}回/日 x ${prescriptionDaysNumber}日 + ${weeklyInjectionCount}回/週 x ${prescriptionWeeks}週 = ${injectionNeedleTotal}${SUPPLY_MASTERS.needles.itemUnitLabel}`,
+      }),
       ...(cgmResult ? [cgmResult] : []),
     ].filter(
       (result) =>
@@ -185,6 +265,7 @@ export default function V4Page() {
     prescriptionDaysNumber,
     prescriptionWeeks,
     selectedCgm,
+    supplyRemaining,
     validationErrors.length,
     weeklyInjectionCount,
   ]);
@@ -211,6 +292,7 @@ export default function V4Page() {
     setVisitDate(todayDateInputValue);
     setNextVisitDate("");
     setMeasurementsPerDay("");
+    setSupplyRemaining(initialSupplyRemaining);
     setCgmId("none");
     setRows([emptyRow()]);
     setCopied(false);
@@ -244,6 +326,16 @@ export default function V4Page() {
   const updateNextVisitDate = (dateValue: string) => {
     setNextVisitDate(dateValue);
     setPrescriptionDays(calculateDaysUntilDate(visitDate, dateValue));
+  };
+
+  const updateSupplyRemaining = (
+    key: keyof SupplyRemainingState,
+    value: string,
+  ) => {
+    setSupplyRemaining((current) => ({
+      ...current,
+      [key]: value,
+    }));
   };
 
   return (
@@ -317,6 +409,50 @@ export default function V4Page() {
                 <InfoBox
                   label="注射回数"
                   value={`${dailyInjectionCount}回/日 + ${weeklyInjectionCount}回/週`}
+                />
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm print-card">
+              <h2 className="text-lg font-bold text-slate-950">残数</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <NumberField
+                  label="測定針"
+                  value={supplyRemaining.measurementNeedles}
+                  unit="本"
+                  onChange={(value) =>
+                    updateSupplyRemaining("measurementNeedles", value)
+                  }
+                />
+                <NumberField
+                  label="測定センサー"
+                  value={supplyRemaining.measurementSensors}
+                  unit="枚"
+                  onChange={(value) =>
+                    updateSupplyRemaining("measurementSensors", value)
+                  }
+                />
+                <NumberField
+                  label="注射針"
+                  value={supplyRemaining.injectionNeedles}
+                  unit="本"
+                  onChange={(value) =>
+                    updateSupplyRemaining("injectionNeedles", value)
+                  }
+                />
+                <NumberField
+                  label="リブレ"
+                  value={supplyRemaining.libre}
+                  unit="個"
+                  onChange={(value) => updateSupplyRemaining("libre", value)}
+                />
+                <NumberField
+                  label="Dexcom G7"
+                  value={supplyRemaining.dexcomG7}
+                  unit="個"
+                  onChange={(value) =>
+                    updateSupplyRemaining("dexcomG7", value)
+                  }
                 />
               </div>
             </section>
