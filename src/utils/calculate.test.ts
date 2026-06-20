@@ -19,6 +19,7 @@ import {
   getV2NeedleCountPerInterval,
 } from "./calculateV2";
 import { calculateV3DrugRowQuantity, calculateV3DrugRows } from "./calculateV3";
+import { calculateDaysUntilDate } from "./date";
 
 describe("calculateDailyDrugQuantity", () => {
   it("超速効型は朝昼晩3回分の空打ちを加えて計算する", () => {
@@ -34,6 +35,16 @@ describe("calculateDailyDrugQuantity", () => {
     expect(master).toBeDefined();
     expect(calculateDailyDrugQuantity(master!, 12, 30, 1).quantity).toBe(1);
     expect(calculateDailyDrugQuantity(master!, 13, 30, 1).quantity).toBe(2);
+  });
+});
+
+describe("calculateDaysUntilDate", () => {
+  it("次回日付までの日数を計算する", () => {
+    expect(calculateDaysUntilDate("2026-06-20", "2026-07-20")).toBe("30");
+  });
+
+  it("過去日付は0日として扱う", () => {
+    expect(calculateDaysUntilDate("2026-06-20", "2026-06-19")).toBe("0");
   });
 });
 

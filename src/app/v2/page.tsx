@@ -16,6 +16,7 @@ import {
   calculateGlucoseStripQuantity,
   calculateNeedleQuantityFromInjectionPlan,
 } from "@/utils/calculate";
+import { calculateDaysUntilDate, formatDateInputValue } from "@/utils/date";
 
 type V2RowState = {
   id: string;
@@ -96,11 +97,13 @@ let lastFocusedNumberInput: HTMLInputElement | null = null;
 
 export default function V2Page() {
   const [prescriptionDays, setPrescriptionDays] = useState("");
+  const [nextVisitDate, setNextVisitDate] = useState("");
   const [measurementsPerDay, setMeasurementsPerDay] = useState("");
   const [cgmId, setCgmId] = useState<CgmId>("none");
   const [rows, setRows] = useState<V2RowState[]>([emptyRow("initial-row")]);
   const [copied, setCopied] = useState(false);
   const prescriptionDaysNumber = toNumber(prescriptionDays);
+  const todayDateInputValue = useMemo(() => formatDateInputValue(new Date()), []);
   const measurementsPerDayNumber = toNumber(measurementsPerDay);
   const prescriptionWeeks = Math.ceil(prescriptionDaysNumber / 7);
   const selectedCgm =
@@ -189,6 +192,7 @@ export default function V2Page() {
 
   const reset = () => {
     setPrescriptionDays("");
+    setNextVisitDate("");
     setMeasurementsPerDay("");
     setCgmId("none");
     setRows([emptyRow()]);
@@ -208,6 +212,11 @@ export default function V2Page() {
     await navigator.clipboard.writeText(copyText);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1600);
+  };
+
+  const updateNextVisitDate = (dateValue: string) => {
+    setNextVisitDate(dateValue);
+    setPrescriptionDays(calculateDaysUntilDate(todayDateInputValue, dateValue));
   };
 
   return (
@@ -260,6 +269,12 @@ export default function V2Page() {
                   value={prescriptionDays}
                   unit="日"
                   onChange={setPrescriptionDays}
+                />
+                <DateField
+                  label="次回日付"
+                  value={nextVisitDate}
+                  min={todayDateInputValue}
+                  onChange={updateNextVisitDate}
                 />
                 <NumberField
                   label="血糖測定回数"
@@ -416,6 +431,31 @@ function InfoBox({ label, value }: { label: string; value: string }) {
       <p className="text-sm font-semibold text-slate-700">{label}</p>
       <p className="mt-1 text-sm text-slate-600">{value}</p>
     </div>
+  );
+}
+
+function DateField({
+  label,
+  value,
+  min,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  min: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="text-sm font-semibold text-slate-700">{label}</span>
+      <input
+        type="date"
+        value={value}
+        min={min}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono outline-none focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+      />
+    </label>
   );
 }
 
