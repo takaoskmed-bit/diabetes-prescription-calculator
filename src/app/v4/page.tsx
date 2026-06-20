@@ -106,15 +106,16 @@ const hasV3RequiredQuantity = (
 ): result is V3PrescriptionRowResult =>
   "requiredQuantity" in result && typeof result.requiredQuantity === "number";
 
-export default function V3Page() {
+export default function V4Page() {
   const [prescriptionDays, setPrescriptionDays] = useState("");
+  const todayDateInputValue = useMemo(() => formatDateInputValue(new Date()), []);
+  const [visitDate, setVisitDate] = useState(todayDateInputValue);
   const [nextVisitDate, setNextVisitDate] = useState("");
   const [measurementsPerDay, setMeasurementsPerDay] = useState("");
   const [cgmId, setCgmId] = useState<CgmId>("none");
   const [rows, setRows] = useState<V3RowState[]>([emptyRow("initial-row")]);
   const [copied, setCopied] = useState(false);
   const prescriptionDaysNumber = toNumber(prescriptionDays);
-  const todayDateInputValue = useMemo(() => formatDateInputValue(new Date()), []);
   const measurementsPerDayNumber = toNumber(measurementsPerDay);
   const prescriptionWeeks = Math.ceil(prescriptionDaysNumber / 7);
   const selectedCgm =
@@ -207,6 +208,7 @@ export default function V3Page() {
 
   const reset = () => {
     setPrescriptionDays("");
+    setVisitDate(todayDateInputValue);
     setNextVisitDate("");
     setMeasurementsPerDay("");
     setCgmId("none");
@@ -215,7 +217,9 @@ export default function V3Page() {
   };
 
   const copyText = [
-    "処方量計算結果 ver.3",
+    "処方量計算結果 ver.4",
+    `開始日（受診日）: ${visitDate}`,
+    `次回受診希望日: ${nextVisitDate || "未選択"}`,
     `処方日数: ${prescriptionDaysNumber}日`,
     ...results.map(
       (result) =>
@@ -229,9 +233,17 @@ export default function V3Page() {
     window.setTimeout(() => setCopied(false), 1600);
   };
 
+  const updateVisitDate = (dateValue: string) => {
+    setVisitDate(dateValue);
+
+    if (nextVisitDate) {
+      setPrescriptionDays(calculateDaysUntilDate(dateValue, nextVisitDate));
+    }
+  };
+
   const updateNextVisitDate = (dateValue: string) => {
     setNextVisitDate(dateValue);
-    setPrescriptionDays(calculateDaysUntilDate(todayDateInputValue, dateValue));
+    setPrescriptionDays(calculateDaysUntilDate(visitDate, dateValue));
   };
 
   return (
@@ -239,9 +251,9 @@ export default function V3Page() {
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <header className="flex flex-col gap-3 border-b border-slate-200 pb-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="text-sm font-semibold text-teal-700">ver.3</p>
+            <p className="text-sm font-semibold text-teal-700">患者さん向け ver.4</p>
             <h1 className="mt-1 text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
-              インスリン・GLP-1RA 残薬差し引き処方量計算
+              次回受診までのお薬・注射用品の確認
             </h1>
           </div>
           <div className="no-print flex flex-wrap gap-2">
@@ -252,10 +264,10 @@ export default function V3Page() {
               ver.2へ
             </Link>
             <Link
-              href="/v4"
+              href="/v3"
               className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
             >
-              ver.4へ
+              ver.3へ
             </Link>
             <button
               type="button"
@@ -286,9 +298,15 @@ export default function V3Page() {
                   onChange={setPrescriptionDays}
                 />
                 <DateField
-                  label="次回日付"
+                  label="開始日（受診日）"
+                  value={visitDate}
+                  min=""
+                  onChange={updateVisitDate}
+                />
+                <DateField
+                  label="次回受診希望日"
                   value={nextVisitDate}
-                  min={todayDateInputValue}
+                  min={visitDate}
                   onChange={updateNextVisitDate}
                 />
                 <NumberField
