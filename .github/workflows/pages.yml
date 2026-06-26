@@ -1,4 +1,4 @@
-name: Deploy static app to GitHub Pages
+name: Deploy Next.js app to GitHub Pages
 
 on:
   push:
@@ -24,18 +24,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Prepare static files
-        run: |
-          mkdir _site
-          cp index.html _site/index.html
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build static app
+        run: npm run build
+        env:
+          GITHUB_PAGES: "true"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: _site
+          path: out
 
       - name: Deploy to GitHub Pages
         id: deployment
