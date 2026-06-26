@@ -11,6 +11,25 @@ export type V2PrescriptionRowResult = QuantityResult & {
   rowId: string;
 };
 
+const SMALL_NEEDLE_PACKAGE_DRUG_IDS = new Set([
+  "ozempic",
+  "awiqli-300",
+  "awiqli-700",
+]);
+
+export function shouldUseSmallNeedlePackage(rows: V2PrescriptionRowInput[]) {
+  const selectedDrugIds = rows
+    .map((row) => row.drugId)
+    .filter((drugId) => drugId !== "");
+
+  return (
+    selectedDrugIds.length > 0 &&
+    selectedDrugIds.every((drugId) =>
+      SMALL_NEEDLE_PACKAGE_DRUG_IDS.has(drugId),
+    )
+  );
+}
+
 export function getV2InjectionsPerInterval(
   master: V2DrugMaster,
   row: V2PrescriptionRowInput,

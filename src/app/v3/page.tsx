@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CGM_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
-import type { CgmId, QuantityResult } from "@/lib/types";
+import type { CgmId, QuantityResult, SupplyMaster } from "@/lib/types";
 import { V2_DRUG_MASTERS, type V2DrugMaster } from "@/lib/v2Master";
 import {
   getV2NeedleCountPerInterval,
+  shouldUseSmallNeedlePackage,
   validateV2NonNegative,
 } from "@/utils/calculateV2";
 import {
@@ -34,6 +35,12 @@ const emptyRow = (id = crypto.randomUUID()): V3RowState => ({
   doses: ["", "", ""],
   remainingItems: "",
 });
+
+const smallNeedleSupplyMaster: SupplyMaster = {
+  ...SUPPLY_MASTERS.needles,
+  packageSize: 14,
+  packageUnitLabel: "袋",
+};
 
 const normalizeNumericText = (value: string) =>
   value
@@ -121,6 +128,9 @@ export default function V3Page() {
     CGM_MASTERS.find((cgm) => cgm.id === cgmId) ?? CGM_MASTERS[0];
 
   const inputRows = useMemo(() => rows.map(rowToInput), [rows]);
+  const injectionNeedleSupplyMaster = shouldUseSmallNeedlePackage(inputRows)
+    ? smallNeedleSupplyMaster
+    : SUPPLY_MASTERS.needles;
   const validationErrors = useMemo(
     () =>
       validateV2NonNegative(inputRows, prescriptionDaysNumber, {
@@ -160,7 +170,7 @@ export default function V3Page() {
       prescriptionDaysNumber,
       ),
       calculateNeedleQuantityFromInjectionPlan(
-        SUPPLY_MASTERS.needles,
+        injectionNeedleSupplyMaster,
         dailyInjectionCount,
         prescriptionDaysNumber,
         weeklyInjectionCount,
@@ -179,6 +189,7 @@ export default function V3Page() {
     );
   }, [
     dailyInjectionCount,
+    injectionNeedleSupplyMaster,
     inputRows,
     measurementsPerDayNumber,
     prescriptionDaysNumber,

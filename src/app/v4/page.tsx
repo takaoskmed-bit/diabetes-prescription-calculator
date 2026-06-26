@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CGM_MASTERS, SUPPLY_MASTERS } from "@/lib/master";
-import type { CgmId, QuantityResult } from "@/lib/types";
+import type { CgmId, QuantityResult, SupplyMaster } from "@/lib/types";
 import { V2_DRUG_MASTERS, type V2DrugMaster } from "@/lib/v2Master";
 import {
   getV2NeedleCountPerInterval,
+  shouldUseSmallNeedlePackage,
   validateV2NonNegative,
 } from "@/utils/calculateV2";
 import {
@@ -55,6 +56,11 @@ const initialSupplyRemaining: SupplyRemainingState = {
 };
 
 const MEASUREMENT_NEEDLE_PACKAGE_SIZE = 30;
+const smallNeedleSupplyMaster: SupplyMaster = {
+  ...SUPPLY_MASTERS.needles,
+  packageSize: 14,
+  packageUnitLabel: "袋",
+};
 
 const normalizeNumericText = (value: string) =>
   value
@@ -144,6 +150,9 @@ export default function V4Page() {
     CGM_MASTERS.find((cgm) => cgm.id === cgmId) ?? CGM_MASTERS[0];
 
   const inputRows = useMemo(() => rows.map(rowToInput), [rows]);
+  const injectionNeedleSupplyMaster = shouldUseSmallNeedlePackage(inputRows)
+    ? smallNeedleSupplyMaster
+    : SUPPLY_MASTERS.needles;
   const validationErrors = useMemo(
     () =>
       validateV2NonNegative(inputRows, prescriptionDaysNumber, {
@@ -200,7 +209,7 @@ export default function V4Page() {
     const remainingMeasurementSensorBoxes = toNumber(
       supplyRemaining.measurementSensors,
     );
-    const remainingInjectionNeedleBoxes = toNumber(
+    const remainingInjectionNeedlePackages = toNumber(
       supplyRemaining.injectionNeedles,
     );
     const cgmRequiredQuantity =
@@ -258,15 +267,16 @@ export default function V4Page() {
       }),
       calculatePackagedQuantityWithRemaining({
         id: "needles",
-        label: SUPPLY_MASTERS.needles.name,
+        label: injectionNeedleSupplyMaster.name,
         totalItems: injectionNeedleTotal,
         remainingItems:
-          remainingInjectionNeedleBoxes * SUPPLY_MASTERS.needles.packageSize,
-        packageSize: SUPPLY_MASTERS.needles.packageSize,
-        itemUnitLabel: SUPPLY_MASTERS.needles.itemUnitLabel,
-        packageUnitLabel: SUPPLY_MASTERS.needles.packageUnitLabel,
-        remainingDetail: `${remainingInjectionNeedleBoxes}箱（${remainingInjectionNeedleBoxes * SUPPLY_MASTERS.needles.packageSize}${SUPPLY_MASTERS.needles.itemUnitLabel}）`,
-        baseDetail: `${dailyInjectionCount}回/日 x ${prescriptionDaysNumber}日 + ${weeklyInjectionCount}回/週 x ${prescriptionWeeks}週 = ${injectionNeedleTotal}${SUPPLY_MASTERS.needles.itemUnitLabel}`,
+          remainingInjectionNeedlePackages *
+          injectionNeedleSupplyMaster.packageSize,
+        packageSize: injectionNeedleSupplyMaster.packageSize,
+        itemUnitLabel: injectionNeedleSupplyMaster.itemUnitLabel,
+        packageUnitLabel: injectionNeedleSupplyMaster.packageUnitLabel,
+        remainingDetail: `${remainingInjectionNeedlePackages}${injectionNeedleSupplyMaster.packageUnitLabel}（${remainingInjectionNeedlePackages * injectionNeedleSupplyMaster.packageSize}${injectionNeedleSupplyMaster.itemUnitLabel}）`,
+        baseDetail: `${dailyInjectionCount}回/日 x ${prescriptionDaysNumber}日 + ${weeklyInjectionCount}回/週 x ${prescriptionWeeks}週 = ${injectionNeedleTotal}${injectionNeedleSupplyMaster.itemUnitLabel}`,
       }),
       ...(cgmResult ? [cgmResult] : []),
     ].filter(
@@ -276,6 +286,7 @@ export default function V4Page() {
     );
   }, [
     dailyInjectionCount,
+    injectionNeedleSupplyMaster,
     inputRows,
     measurementsPerDayNumber,
     prescriptionDaysNumber,
@@ -451,7 +462,7 @@ export default function V4Page() {
                 <NumberField
                   label="注射針"
                   value={supplyRemaining.injectionNeedles}
-                  unit="箱"
+                  unit={injectionNeedleSupplyMaster.packageUnitLabel}
                   onChange={(value) =>
                     updateSupplyRemaining("injectionNeedles", value)
                   }

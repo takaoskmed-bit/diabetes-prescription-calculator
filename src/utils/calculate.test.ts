@@ -17,6 +17,7 @@ import { V2_DRUG_MASTERS } from "@/lib/v2Master";
 import {
   calculateV2DrugRowQuantity,
   getV2NeedleCountPerInterval,
+  shouldUseSmallNeedlePackage,
 } from "./calculateV2";
 import { calculateV3DrugRowQuantity, calculateV3DrugRows } from "./calculateV3";
 import { calculateDaysUntilDate } from "./date";
@@ -274,6 +275,50 @@ describe("getV2NeedleCountPerInterval", () => {
         doses: [0, 0, 0],
       }),
     ).toBe(0);
+  });
+});
+
+describe("shouldUseSmallNeedlePackage", () => {
+  it("オゼンピックだけなら14本/袋に切り替える", () => {
+    expect(
+      shouldUseSmallNeedlePackage([
+        { id: "row-1", drugId: "ozempic", doses: [0.25, 0, 0] },
+      ]),
+    ).toBe(true);
+  });
+
+  it("アウィクリだけなら14本/袋に切り替える", () => {
+    expect(
+      shouldUseSmallNeedlePackage([
+        { id: "row-1", drugId: "awiqli-300", doses: [140, 0, 0] },
+      ]),
+    ).toBe(true);
+  });
+
+  it("オゼンピックとアウィクリだけなら14本/袋に切り替える", () => {
+    expect(
+      shouldUseSmallNeedlePackage([
+        { id: "row-1", drugId: "ozempic", doses: [0.25, 0, 0] },
+        { id: "row-2", drugId: "awiqli-700", doses: [140, 0, 0] },
+      ]),
+    ).toBe(true);
+  });
+
+  it("他の薬剤が含まれる場合は70本/箱のままにする", () => {
+    expect(
+      shouldUseSmallNeedlePackage([
+        { id: "row-1", drugId: "ozempic", doses: [0.25, 0, 0] },
+        { id: "row-2", drugId: "novorapid", doses: [10, 0, 0] },
+      ]),
+    ).toBe(false);
+  });
+
+  it("薬剤未選択では70本/箱のままにする", () => {
+    expect(
+      shouldUseSmallNeedlePackage([
+        { id: "row-1", drugId: "", doses: [0, 0, 0] },
+      ]),
+    ).toBe(false);
   });
 });
 
